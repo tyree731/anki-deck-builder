@@ -1,0 +1,18 @@
+[project]
+name = "adb-deck"
+version = "0.1.0"
+description = "anki-deck-builder - synthesize and complete: assemble, lint, build and import-validate the deck; study guide; delivery"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.5",
+    "adb-core",
+    "genanki>=0.13.1",
+    "anki>=26.9",
+]
+
+[tool.uv.sources]
+adb-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

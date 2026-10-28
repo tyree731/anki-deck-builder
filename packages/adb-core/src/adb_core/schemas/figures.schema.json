@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Extract-phase figure sidecar: every flashcard-ready image cut from one page",
+  "type": "object",
+  "required": ["page_id", "figures"],
+  "additionalProperties": false,
+  "properties": {
+    "page_id": {"type": "string", "pattern": "^p\\d{3,4}$"},
+    "figures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "kind", "title", "description", "labels", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {"type": "string", "pattern": "^p\\d{3,4}_[a-z0-9_-]+\\.(jpg|png)$"},
+          "kind": {"enum": ["crop", "masked", "redraw"]},
+          "base": {"type": "string", "pattern": "^p\\d{3,4}_[a-z0-9_-]+\\.(jpg|png)$"},
+          "title": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "labels": {"type": "array", "items": {"type": "string"}},
+          "mask_map": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["n", "label"],
+              "additionalProperties": false,
+              "properties": {"n": {"type": "integer", "minimum": 1}, "label": {"type": "string", "minLength": 1}}
+            }
+          },
+          "confidence": {"enum": ["high", "medium", "low"]},
+          "suggested_use": {"type": "string"}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"kind": {"const": "masked"}}},
+            "then": {"required": ["base", "mask_map"], "properties": {"mask_map": {"minItems": 1}}}
+          },
+          {
+            "if": {"properties": {"kind": {"const": "redraw"}}},
+            "then": {"required": ["base"]}
+          }
+        ]
+      }
+    }
+  }
+}

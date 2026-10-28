@@ -1,0 +1,25 @@
+[project]
+name = "adb-cli"
+version = "0.1.0"
+description = "anki-deck-builder - the `adb` command: one entry point dispatching to every pipeline tool, plus preflight"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.5",
+    "adb-core",
+    "adb-ingest",
+    "adb-deck",
+    "adb-review",
+]
+
+[project.scripts]
+adb = "adb_cli.cli:cli"
+
+[tool.uv.sources]
+adb-core = { workspace = true }
+adb-ingest = { workspace = true }
+adb-deck = { workspace = true }
+adb-review = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

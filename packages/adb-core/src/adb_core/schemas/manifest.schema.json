@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Organize-phase manifest: one unit per page or text document found in the input directory",
+  "type": "object",
+  "required": ["schema_version", "input_dir", "generated_at", "units", "skipped"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "input_dir": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "source_file", "sha256", "excluded"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^p\\d{3,4}$"},
+          "kind": {"enum": ["image", "pdf_page", "text", "embedded_image"]},
+          "source_file": {"type": "string", "minLength": 1},
+          "page": {"type": ["integer", "null"], "minimum": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "image": {"type": ["string", "null"]},
+          "text": {"type": ["string", "null"]},
+          "width": {"type": ["integer", "null"]},
+          "height": {"type": ["integer", "null"]},
+          "has_text_layer": {"type": "boolean"},
+          "duplicate_of": {"type": ["string", "null"]},
+          "excluded": {"type": "boolean"},
+          "exclude_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "reason"],
+        "additionalProperties": false,
+        "properties": {"file": {"type": "string"}, "reason": {"type": "string"}}
+      }
+    }
+  }
+}

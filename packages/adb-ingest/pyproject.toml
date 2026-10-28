@@ -1,0 +1,19 @@
+[project]
+name = "adb-ingest"
+version = "0.1.0"
+description = "anki-deck-builder - organize and extract: inventory inputs into page units; pixel tools for figure extraction"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.5",
+    "adb-core",
+    "pillow>=13.0",
+    "pillow-heif>=1.8",
+    "pypdfium2>=5.14",
+]
+
+[tool.uv.sources]
+adb-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

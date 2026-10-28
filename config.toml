@@ -1,0 +1,79 @@
+# runtime configuration for the anki-deck-builder agent skill.
+
+[paths]
+# created inside the input folder: the working directory and the delivery folder.
+run_dir_name = ".anki-build"
+output_dir_name = "anki-output"
+
+[organize]
+image_extensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".tif", ".tiff", ".bmp", ".heic", ".heif"]
+pdf_extensions = [".pdf"]
+text_extensions = [".txt", ".md", ".markdown", ".html", ".htm", ".csv"]
+office_extensions = [".docx", ".pptx"]
+pdf_render_dpi = 200
+max_page_long_side_px = 6000
+# contact sheet grid: thumbnails per row, rows per sheet.
+contact_sheet_columns = 7
+contact_sheet_rows = 4
+
+[extract]
+pages_per_worker = 5
+# a text-only unit counts as this fraction of a page when batching.
+text_page_weight = 0.34
+max_parallel_workers = 5
+crop_max_long_side_px = 1400
+jpeg_quality = 82
+
+[synthesize]
+pages_per_author = 8
+max_parallel_authors = 5
+
+[refine]
+cards_per_reviewer = 62
+max_parallel_reviewers = 5
+# past this many rounds, check in with the user before rendering another.
+max_rounds = 4
+# in later rounds the orchestrator reviews changed cards itself; above this many, it also
+# dispatches reviewers.
+personal_review_limit = 120
+# card screenshots are taken at a tablet viewport.
+viewport_width_px = 820
+viewport_height_px = 1180
+screenshot_parallelism = 8
+
+[complete]
+# companion files delivered beside the .apkg.
+study_guide = true
+export_transcripts = true
+deck_source = true
+
+[checkpoints]
+# where the orchestrator stops to confirm with the user before continuing.
+after_organize = false
+after_categorize = true
+after_refine = false
+
+[labels]
+# provenance text added to a card's Extra field.
+model_answer = "✎ Model answer: your materials left this blank, so check it against your notes."
+model_goal = "✎ Model answer for a learning goal in your materials. Check it against your notes."
+correction_prefix = "⚠ Careful: "
+
+[lint]
+# L04: references meant for the agent (photo names, page ids, file names) that must not
+# reach a learner-facing field. Python regular expressions.
+internal_ref_patterns = [
+    '\bIMG_\d+\b',
+    '\bp\d{3,4}\b',
+    '(?i)\.(jpe?g|png|heic|pdf|webp|tiff?)\b',
+    '(?i)\bphoto\s+[A-Za-z_]*\d+',
+    '(?i)\btranscript\b',
+]
+max_front_words = 60
+max_back_words = 120
+
+[models]
+# model for each subagent role. leave a key unset to inherit the orchestrator's model.
+# extract_worker = ""
+# author_worker = ""
+# review_worker = ""

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Refine-phase triage: the orchestrator's decision on every finding of a round",
+  "type": "object",
+  "required": ["round", "decisions"],
+  "additionalProperties": false,
+  "properties": {
+    "round": {"type": "integer", "minimum": 1},
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding", "card_id", "severity", "decision", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "finding": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+\\.json#\\d+$"},
+          "card_id": {"type": "string"},
+          "severity": {"enum": ["high", "medium", "low"]},
+          "decision": {"enum": ["fix", "reject", "defer"]},
+          "reason": {"type": "string", "minLength": 5}
+        },
+        "if": {"properties": {"decision": {"const": "defer"}}},
+        "then": {"properties": {"severity": {"const": "low"}}}
+      }
+    }
+  }
+}

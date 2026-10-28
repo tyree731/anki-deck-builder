@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Refine-phase review findings: what one reviewer looked at and what they found",
+  "type": "object",
+  "required": ["reviewer", "round", "reviewed", "issues"],
+  "additionalProperties": false,
+  "properties": {
+    "reviewer": {"type": "string", "minLength": 1},
+    "round": {"type": "integer", "minimum": 1},
+    "reviewed": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*:\\d+$"}},
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["card_id", "severity", "category", "problem", "suggested_fix"],
+        "additionalProperties": false,
+        "properties": {
+          "card_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*:\\d+$"},
+          "severity": {"enum": ["high", "medium", "low"]},
+          "category": {"enum": ["wrong_answer", "giveaway", "missing_context", "ambiguous", "incomplete_answer",
+                                "wrong_label", "unreadable_image", "rendering", "internal_reference", "other"]},
+          "problem": {"type": "string", "minLength": 5},
+          "suggested_fix": {"type": "string", "minLength": 3}
+        }
+      }
+    }
+  }
+}

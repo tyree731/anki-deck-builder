@@ -1,0 +1,18 @@
+[project]
+name = "adb-review"
+version = "0.1.0"
+description = "anki-deck-builder - refine: render every card with Anki's engine, screenshot it, and gate review rounds"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.5",
+    "adb-core",
+    "anki>=26.9",
+    "pillow>=13.0",
+]
+
+[tool.uv.sources]
+adb-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

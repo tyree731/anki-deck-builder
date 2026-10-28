@@ -1,0 +1,71 @@
+[project]
+name = "anki-deck-builder"
+version = "0.1.0"
+description = "Agent skill: turn a folder of photos, PDFs and documents into a reviewed, importable Anki deck"
+requires-python = ">=3.14"
+dependencies = ["adb-core", "adb-ingest", "adb-deck", "adb-review", "adb-cli"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.17",
+    "pyright[nodejs]>=1.1.414",
+    "adb-testkit",
+]
+
+[tool.uv]
+package = false
+exclude-newer = "3 days"
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+adb-core = { workspace = true }
+adb-ingest = { workspace = true }
+adb-deck = { workspace = true }
+adb-review = { workspace = true }
+adb-cli = { workspace = true }
+adb-testkit = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["packages/*/tests"]
+python_files = ["test_*.py"]
+addopts = ["--import-mode=importlib", "-p", "adb_testkit.plugin"]
+# genanki depends on cached_property, which calls asyncio.iscoroutinefunction (deprecated
+# in Python 3.14). Silence exactly that third-party warning; anything else still shows.
+filterwarnings = [
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:cached_property",
+]
+markers = [
+    "integration: builds, imports or renders a real deck with genanki/anki",
+    "browser: needs a headless Chrome/Chromium for screenshots",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+src = ["packages/*/src"]
+
+[tool.ruff.lint]
+# D417: a Google-style "Args:" section must document every parameter. Shared functions
+# document parameters, returns and raises in Args/Returns/Raises sections, not prose.
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "D417", "TID251"]
+# non-ASCII appears only in learner-facing output: the provenance labels and the card
+# footer separator (config.toml labels, build_deck), and equation arrows in sample cards.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Python 3.14 evaluates annotations lazily (PEP 649/749); the old PEP 563 import is unneeded.
+"__future__.annotations".msg = "Not needed on Python 3.14+: annotations are already evaluated lazily."
+
+[tool.pyright]
+include = ["packages"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+reportMissingModuleSource = "none"

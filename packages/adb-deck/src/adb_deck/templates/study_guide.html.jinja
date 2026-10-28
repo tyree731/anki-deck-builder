@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+:root { --fg:#1d1d1f; --muted:#5f6368; --bg:#fff; --card:#f5f5f7; --accent:#0a62c9; --mark:#fff2a8; --warn:#a15c00; }
+@media (prefers-color-scheme: dark) {
+  :root { --fg:#f2f2f7; --muted:#a1a1a6; --bg:#1c1c1e; --card:#2c2c2e; --accent:#64a8ff; --mark:#5a4b00; --warn:#ffb340; }
+}
+body { font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--fg); background:var(--bg);
+  max-width:860px; margin:0 auto; padding:16px; line-height:1.5; }
+h1 { margin-bottom:4px; }
+h2 { margin-top:40px; border-bottom:3px solid var(--accent); padding-bottom:4px; }
+h3 { margin-top:28px; color:var(--accent); }
+.sub { color:var(--muted); margin-top:0; }
+ul.items { padding-left:0; list-style:none; }
+ul.items > li, .diagram { background:var(--card); border-radius:10px; padding:10px 14px; margin:8px 0; }
+.q { font-weight:600; } .a { margin-top:4px; }
+.extra { font-size:0.9em; color:var(--muted); margin-top:6px; }
+.flag { color:var(--warn); }
+mark { background:var(--mark); color:inherit; padding:0 2px; border-radius:3px; }
+img { max-width:100%; max-height:460px; border-radius:8px; margin-top:8px; display:block; }
+table { border-collapse:collapse; margin:6px 0; } td, th { border:1px solid var(--muted); padding:3px 8px; }
+.heads { border-left:4px solid var(--warn); background:var(--card); padding:8px 16px; border-radius:6px; }
+.heads li { margin:4px 0; }
+@media print { ul.items > li, .diagram { break-inside:avoid; } }
+</style>
+</head>
+<body>
+{% macro figure(image) %}<img src="data:{{ image.mime }};base64,{{ image.data }}" alt="{{ image.name }}">{% endmacro %}
+<h1>{{ title }}</h1>
+<p class="sub">Everything in the deck, for {{ audience }}, sorted by source and topic. Highlighted words are what the fill-in-the-blank cards ask for.</p>
+{% if corrections or model_answers %}
+<div class="heads"><b>Spots worth a second look</b><ul>
+{% for correction in corrections %}
+<li>{{ correction }}</li>
+{% endfor %}
+{% if model_answers %}
+<li>{{ model_answers }} card(s) carry model answers (marked ✎) where the materials left a question blank or stated only a learning goal. Check them against what the teacher expects.</li>
+{% endif %}
+</ul></div>
+{% endif %}
+{% for part in parts %}
+<section>
+<h2>Part {{ loop.index }} · {{ part.label }}</h2>
+<p class="sub">{{ part.description }}</p>
+{% for topic in part.topics %}
+<h3>{{ topic.label }}</h3>
+{% for diagram in topic.diagrams %}
+<div class="diagram"><div class="q">{{ diagram.title }}</div><div class="a">
+{%- for answer in diagram.answers %}{% if not loop.first %}<br>{% endif %}{{ answer }}{% endfor -%}
+</div>{% if diagram.image %}{{ figure(diagram.image) }}{% endif %}</div>
+{% endfor %}
+<ul class="items">
+{% for card in topic.cards %}
+<li>
+{%- if card.cloze %}<div>{{ card.cloze }}</div>
+{%- else %}<div class="q">{{ card.front }}</div><div class="a">{{ card.back }}</div>{% endif %}
+{%- if card.extra %}<div class="extra">{{ card.extra }}</div>{% endif %}
+{%- if card.origin == "correction" %}<div class="extra flag">{{ labels.correction_prefix }}{{ card.correction }}</div>
+{%- elif card.origin in ("model_answer", "model_goal") %}<div class="extra flag">{{ labels[card.origin] }}</div>{% endif %}
+{%- for image in card.images %}{{ figure(image) }}{% endfor -%}
+</li>
+{% endfor %}
+</ul>
+{% endfor %}
+</section>
+{% endfor %}
+</body>
+</html>
