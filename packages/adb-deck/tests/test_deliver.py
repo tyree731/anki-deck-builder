@@ -7,14 +7,11 @@ import click
 import httpx2
 import pytest
 
-from adb_core import wsl
 from adb_core.common import sha256_file
 from adb_deck import deliver
 from adb_testkit import wait_for_file, write_json
 
 KEYS = ["s01_a", "s01_b", "s02_c"]
-ALL_NOTES = {1: "s01_a", 2: "s01_b", 3: "s02_c"}
-WIN_DECK = "\\\\wsl.localhost\\Ubuntu\\home\\kid\\materials\\anki-output\\Test Deck.apkg"
 
 
 class FakeAnki:
@@ -25,9 +22,7 @@ class FakeAnki:
         notes: dict[int, str] | None = None,
         adds: dict[int, str] | None = None,
         errors=None,
-        media_dir: str = "/home/kid/.local/share/Anki2/User 1/collection.media",
     ):
-        self.media_dir = media_dir
         self.notes = dict(notes or {})
         self.adds = dict(adds or {})
         self.errors = errors or {}
@@ -50,7 +45,6 @@ class FakeAnki:
             ],
             "importPackage": True,
             "sync": None,
-            "getMediaDirPath": self.media_dir,
         }[action]
         return httpx2.Response(200, json={"result": result, "error": None})
 
@@ -78,16 +72,6 @@ def completed(run_dir: Path) -> Path:
     return run_dir
 
 
-@pytest.fixture
-def under_wsl(monkeypatch) -> list[Path]:
-    """Run as if under WSL: files handed to Windows are recorded instead of opened; wslpath answers WIN_DECK."""
-    handed: list[Path] = []
-    monkeypatch.setattr(wsl, "is_wsl", lambda: True)
-    monkeypatch.setattr(wsl, "open_on_windows", handed.append)
-    monkeypatch.setattr(wsl, "windows_path", lambda path: WIN_DECK)
-    return handed
-
-
 def _deliveries(run_dir: Path) -> list[dict]:
     return json.loads((run_dir.parent / "anki-output" / "summary.json").read_text())["deliveries"]
 
@@ -106,7 +90,6 @@ def test_open_in_anki_uses_the_registered_app(completed: Path, monkeypatch):
     """test_open_in_anki_uses_the_registered_app: outside WSL, click.launch opens the deck with the app registered
     for .apkg files, and the delivery is recorded."""
     monkeypatch.setattr(deliver, "find_anki", lambda: "/Applications/Anki.app")
-    monkeypatch.setattr(wsl, "is_wsl", lambda: False)
     opened: list[str] = []
     monkeypatch.setattr(click, "launch", lambda url, **kwargs: opened.append(url) or 0)
     record = deliver.open_in_anki(completed)
@@ -118,7 +101,6 @@ def test_open_in_anki_reports_when_nothing_opens_the_deck(completed: Path, monke
     """test_open_in_anki_reports_when_nothing_opens_the_deck: a failed launch is an error, and no delivery is
     recorded."""
     monkeypatch.setattr(deliver, "find_anki", lambda: "/usr/bin/anki")
-    monkeypatch.setattr(wsl, "is_wsl", lambda: False)
     monkeypatch.setattr(click, "launch", lambda url, **kwargs: 1)
     with pytest.raises(deliver.DeliveryError, match="no app opened"):
         deliver.open_in_anki(completed)
@@ -131,39 +113,6 @@ def test_open_in_anki_needs_anki(completed: Path, monkeypatch):
     monkeypatch.setattr(click, "launch", lambda *args, **kwargs: pytest.fail("opened without Anki"))
     with pytest.raises(deliver.DeliveryError, match="isn't installed"):
         deliver.open_in_anki(completed)
-
-
-def test_open_from_wsl_hands_windows_anki_the_deck(completed: Path, under_wsl: list[Path], monkeypatch):
-    """test_open_from_wsl_hands_windows_anki_the_deck: under WSL, an Anki installed on Windows gets the deck through
-    Windows, not through a Linux app."""
-    monkeypatch.setattr(deliver, "find_anki", lambda: "/mnt/c/Users/kid/AppData/Local/Programs/Anki/Anki.exe")
-    monkeypatch.setattr(click, "launch", lambda *args, **kwargs: pytest.fail("used a Linux app for Windows Anki"))
-    record = deliver.open_in_anki(completed)
-    assert under_wsl == [completed.parent / "anki-output" / "Test Deck.apkg"] and record["via"] == "windows"
-
-
-def test_open_from_wsl_reports_what_windows_said(completed: Path, under_wsl: list[Path], monkeypatch):
-    """test_open_from_wsl_reports_what_windows_said: a refusal from Windows becomes a DeliveryError with its message,
-    and no delivery is recorded."""
-
-    def refuse(path: Path) -> None:
-        raise wsl.WslError(f"Windows couldn't open {path}: not found")
-
-    monkeypatch.setattr(deliver, "find_anki", lambda: "/mnt/c/Program Files/Anki/Anki.exe")
-    monkeypatch.setattr(wsl, "open_on_windows", refuse)
-    with pytest.raises(deliver.DeliveryError, match="not found"):
-        deliver.open_in_anki(completed)
-    assert "deliveries" not in json.loads((completed.parent / "anki-output" / "summary.json").read_text())
-
-
-def test_open_from_wsl_with_anki_inside_wsl_uses_the_linux_app(completed: Path, under_wsl: list[Path], monkeypatch):
-    """test_open_from_wsl_with_anki_inside_wsl_uses_the_linux_app: an Anki installed inside WSL gets the deck from
-    the Linux app registered for it, even though Windows is reachable."""
-    monkeypatch.setattr(deliver, "find_anki", lambda: "/usr/local/bin/anki")
-    opened: list[str] = []
-    monkeypatch.setattr(click, "launch", lambda url, **kwargs: opened.append(url) or 0)
-    assert deliver.open_in_anki(completed)["via"] == "default app"
-    assert len(opened) == 1 and under_wsl == []
 
 
 @pytest.mark.platform("linux", "macos", "windows", "wsl")
@@ -201,19 +150,6 @@ def test_import_reports_notes_already_there_and_stale_ones(completed: Path):
     record = deliver.import_via_ankiconnect(completed, anki.client())
     assert (record["added"], record["already_there"], record["extra"]) == (2, 1, ["s01_old"])
     assert record["synced"] is False
-
-
-def test_import_from_wsl_gives_windows_anki_a_windows_path(completed: Path, under_wsl: list[Path]):
-    """test_import_from_wsl_gives_windows_anki_a_windows_path: under WSL, an Anki whose media folder is a Windows path
-    gets the deck's Windows path; an Anki inside WSL gets the Linux path."""
-    windows = FakeAnki(adds=ALL_NOTES, media_dir="C:\\Users\\kid\\AppData\\Roaming\\Anki2\\User 1\\collection.media")
-    deliver.import_via_ankiconnect(completed, windows.client())
-    assert dict(windows.calls)["importPackage"]["path"] == WIN_DECK
-    linux = FakeAnki(adds=ALL_NOTES)
-    deliver.import_via_ankiconnect(completed, linux.client())
-    assert dict(linux.calls)["importPackage"]["path"] == str(
-        (completed.parent / "anki-output" / "Test Deck.apkg").resolve()
-    )
 
 
 def test_ankiconnect_failures_become_delivery_errors():

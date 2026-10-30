@@ -20,7 +20,9 @@ Linux, Windows and WSL, and WSL detection and paths. They run only with
 `pytest --platform linux|macos|windows|wsl`, which CI's pull-request jobs pass
 (`.github/workflows/platforms.yml`). Their `stand_in_anki` fixture makes a stand-in this
 user's app for `.apkg` files while a test runs, so run them on a CI runner, not your
-own machine. zizmor lints the workflows (`.github/workflows/zizmor.yml`); pin actions
+own machine. Platform-specific behavior (WSL detection, file associations, install
+locations) is tested only there, on the real platform; a unit test that fakes the platform
+only checks the strings it was handed. zizmor lints the workflows (`.github/workflows/zizmor.yml`); pin actions
 to a full commit SHA with a `# vX.Y.Z` comment.
 
 ## Code conventions

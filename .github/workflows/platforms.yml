@@ -17,6 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up uv
@@ -48,6 +49,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up uv
@@ -72,6 +74,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up uv
@@ -89,9 +92,14 @@ jobs:
         run: uv run --frozen pytest --platform windows -m platform -v -rs
 
   wsl:
+    name: wsl ${{ matrix.wsl-version }}
     runs-on: windows-2022
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        wsl-version: [1, 2]
     defaults:
       run:
         shell: wsl-bash {0}
@@ -99,12 +107,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up WSL
         uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-26.04
+          wsl-version: ${{ matrix.wsl-version }}
           additional-packages: curl ca-certificates git
 
       # actions run on the Windows host, so setup-uv can't install uv inside WSL. the shallow
