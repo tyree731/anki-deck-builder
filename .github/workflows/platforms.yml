@@ -5,6 +5,9 @@ on:
 
 permissions: {}
 
+env:
+  UV_VERSION: "0.13.6"
+
 jobs:
   linux:
     runs-on: ubuntu-26.04
@@ -18,6 +21,8 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Install xdg-open and its helpers
         # xdg-open needs a display to use desktop files (hence xvfb), and xdg-mime matches
@@ -35,6 +40,30 @@ jobs:
       - name: Platform tests
         run: xvfb-run -a uv run --frozen pytest --platform linux -m platform -v -rs
 
+  macos:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Lint
+        run: uv run --frozen ruff check packages
+
+      - name: Typecheck
+        run: uv run --frozen pyright
+
+      - name: Platform tests
+        run: uv run --frozen pytest --platform macos -m platform -v -rs
+
   windows:
     runs-on: windows-2025
     permissions:
@@ -47,6 +76,8 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Lint
         run: uv run --frozen ruff check packages
@@ -76,14 +107,14 @@ jobs:
           distribution: Ubuntu-26.04
           additional-packages: curl ca-certificates git
 
-      # Actions run on the Windows host, so setup-uv can't install uv inside WSL. The shallow
+      # actions run on the Windows host, so setup-uv can't install uv inside WSL. the shallow
       # clone puts the checkout in the Linux filesystem, with Linux line endings.
       - name: Set up uv and the repository inside WSL
         env:
           REPO: ${{ github.workspace }}
-          WSLENV: REPO/p
+          WSLENV: REPO/p:UV_VERSION
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | sh
           git -c safe.directory='*' clone --depth 1 "file://$REPO" "$HOME/adb"
 
       - name: Lint

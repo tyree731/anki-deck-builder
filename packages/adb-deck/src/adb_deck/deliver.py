@@ -122,7 +122,7 @@ class AnkiConnect:
 
 
 def _deck_query(deck_root: str) -> str:
-    # A deck and its subdecks, with Anki's search wildcards (* and _), quotes and backslashes literal.
+    # a deck and its subdecks, with Anki's search wildcards (* and _), quotes and backslashes literal.
     return 'deck:"' + re.sub(r'([\\"*_])', r"\\\1", deck_root) + '"'
 
 
@@ -160,12 +160,12 @@ def _record(out_dir: Path, record: dict) -> dict:
 
 
 def _on_windows(app: str) -> bool:
-    # Under WSL, an Anki found on a Windows drive runs on Windows; one found in Linux runs in WSL.
+    # under WSL, an Anki found on a Windows drive runs on Windows; one found in Linux runs in WSL.
     return app.lower().endswith(".exe") or Path(app).is_relative_to(wsl.mount_root())
 
 
 def _open_file(path: Path, app: str) -> str:
-    # An Anki installed on Windows, seen from WSL, gets the file through Windows. Everything else
+    # an Anki installed on Windows, seen from WSL, gets the file through Windows. everything else
     # (macOS, Windows, Linux, Anki inside WSL) uses click.launch: the app registered for .apkg.
     if wsl.is_wsl() and _on_windows(app):
         try:

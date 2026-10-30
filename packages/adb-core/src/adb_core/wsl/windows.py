@@ -12,7 +12,7 @@ class WslError(Exception):
     """Windows can't be reached from WSL, or refused the request."""
 
 
-# Opens a path literally (Start-Process would expand wildcards in it); any error stops the script.
+# opens a path literally (Start-Process would expand wildcards in it); any error stops the script.
 _OPEN = (
     "$ErrorActionPreference = 'Stop'; "
     'if (-not (Test-Path -LiteralPath $env:ADB_OPEN_PATH)) { throw "not found: $env:ADB_OPEN_PATH" }; '

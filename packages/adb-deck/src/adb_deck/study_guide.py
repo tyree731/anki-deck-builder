@@ -45,7 +45,7 @@ def render_guide(run_dir: Path) -> str:
         }
 
     def fmt(s: str | None) -> Markup:
-        # Card fields are HTML by design (they become Anki fields), so they are trusted here.
+        # card fields are HTML by design (they become Anki fields), so they are trusted here.
         s = IMG_RE.sub("", s or "")
         return Markup(re.sub(r"\{\{chem:([^}]+)\}\}", lambda m: chem_html(m.group(1)), s))
 

@@ -4,7 +4,7 @@ import configparser
 import platform
 from pathlib import Path
 
-# A custom WSL kernel may not say "microsoft"; WSL's interop registration and /run/WSL still do.
+# a custom WSL kernel may not say "microsoft"; WSL's interop registration and /run/WSL still do.
 _WSL_MARKERS = ("proc/sys/fs/binfmt_misc/WSLInterop", "proc/sys/fs/binfmt_misc/WSLInterop-late", "run/WSL")
 _CONTAINER_MARKERS = (".dockerenv", "run/.containerenv")  # Docker, Podman
 

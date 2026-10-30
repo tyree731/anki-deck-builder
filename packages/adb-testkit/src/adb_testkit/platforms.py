@@ -1,10 +1,12 @@
-"""Real-platform tests: those marked `platform`, run with `pytest --platform linux|windows|wsl`.
+"""Real-platform tests: those marked `platform`, run with `pytest --platform linux|macos|windows|wsl`.
 
 They use the real OS, and the stand-in for Anki changes this user's file associations
 while a test runs, so they're meant for CI runners (see .github/workflows/platforms.yml).
 """
 
+import json
 import os
+import plistlib
 import shlex
 import subprocess
 import time
@@ -16,7 +18,45 @@ import pytest
 
 from adb_core import wsl
 
-PLATFORMS = ("linux", "windows", "wsl")
+PLATFORMS = ("linux", "macos", "windows", "wsl")
+
+_LSREGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+# the macOS stand-in: an AppleScript app whose open handler records the file's path.
+_APPLET = r"""on open theFiles
+	set target to POSIX path of (item 1 of theFiles)
+	do shell script "printf '%s\n' " & quoted form of target & " > " & quoted form of "{marker}"
+end open
+"""
+
+# declares a type for the .apkg extension and claims it, replacing the applet's catch-all claim.
+_APKG_TYPE = "org.ankideckbuilder.standin.apkg"
+_INFO = {
+    "CFBundleIdentifier": "org.ankideckbuilder.standin",
+    "CFBundleDocumentTypes": [
+        {
+            "CFBundleTypeName": "Anki deck package",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Owner",
+            "LSItemContentTypes": [_APKG_TYPE],
+        }
+    ],
+    "UTImportedTypeDeclarations": [
+        {
+            "UTTypeIdentifier": _APKG_TYPE,
+            "UTTypeDescription": "Anki deck package",
+            "UTTypeConformsTo": ["public.data"],
+            "UTTypeTagSpecification": {"public.filename-extension": ["apkg"]},
+        }
+    ],
+}
+
+# which app Launch Services would open a file with (JavaScript for Automation).
+_OPENS_WITH = (
+    "ObjC.import('AppKit');"
+    "const app = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.fileURLWithPath({path}));"
+    "app.isNil() ? '' : app.path.js"
+)
 
 _MIME = """<?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
@@ -24,7 +64,7 @@ _MIME = """<?xml version="1.0" encoding="UTF-8"?>
 </mime-info>
 """
 
-# Makes the stand-in this user's app for .apkg files; prints the association it replaced.
+# makes the stand-in this user's app for .apkg files; prints the association it replaced.
 _REGISTER = """$ErrorActionPreference = 'Stop'
 $classes = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\\Classes')
 $extension = $classes.CreateSubKey('.apkg')
@@ -34,7 +74,7 @@ $classes.CreateSubKey('adbstandin.apkg\\shell\\open\\command').SetValue('', $env
 if ($null -ne $previous) { Write-Output $previous }
 """
 
-# Removes the stand-in and puts back the association it replaced, if any.
+# removes the stand-in and puts back the association it replaced, if any.
 _UNREGISTER = """$ErrorActionPreference = 'Stop'
 $classes = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\\Classes')
 $classes.DeleteSubKeyTree('adbstandin.apkg', $false)
@@ -82,6 +122,14 @@ def stand_in_anki(platform: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         The marker file the stand-in writes.
     """
     marker = tmp_path / "opened.txt"
+    if platform == "macos":
+        app = _register_with_launch_services(marker, tmp_path)
+        monkeypatch.setenv("ANKI_DECK_BUILDER_ANKI", str(app))
+        try:
+            yield marker
+        finally:
+            subprocess.run([_LSREGISTER, "-u", str(app)], check=False)
+        return
     if platform == "linux":
         _register_with_xdg(marker, tmp_path, monkeypatch)
         monkeypatch.setenv("ANKI_DECK_BUILDER_ANKI", str(_placeholder(tmp_path / "anki")))
@@ -101,8 +149,44 @@ def _placeholder(path: Path) -> Path:
     return path
 
 
+def _build_applet(marker: Path, tmp_path: Path) -> Path:
+    # an app that claims .apkg files and records what it's asked to open. editing Info.plist
+    # breaks the applet's signature, so it's signed again (ad hoc).
+    app = tmp_path / "Anki Stand-in.app"
+    script = tmp_path / "stand-in.applescript"
+    literal = str(marker).replace("\\", "\\\\").replace('"', '\\"')
+    script.write_text(_APPLET.replace("{marker}", literal))
+    subprocess.run(["osacompile", "-o", str(app), str(script)], check=True)
+    info = app / "Contents" / "Info.plist"
+    info.write_bytes(plistlib.dumps(plistlib.loads(info.read_bytes()) | _INFO))
+    subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True, capture_output=True)
+    return app
+
+
+def _opens_with(path: Path) -> str:
+    script = _OPENS_WITH.replace("{path}", json.dumps(str(path)))
+    done = subprocess.run(["osascript", "-l", "JavaScript", "-e", script], capture_output=True, text=True)
+    return done.stdout.strip()
+
+
+def _register_with_launch_services(marker: Path, tmp_path: Path, timeout: float = 30.0) -> Path:
+    # registers the stand-in, then waits until Launch Services would open an .apkg with it.
+    app = _build_applet(marker, tmp_path)
+    subprocess.run([_LSREGISTER, "-f", str(app)], check=True)
+    probe = tmp_path / "probe.apkg"
+    probe.write_bytes(b"")
+    deadline = time.monotonic() + timeout
+    while True:
+        opens_with = _opens_with(probe)
+        if opens_with and Path(opens_with).resolve() == app.resolve():
+            return app
+        if time.monotonic() > deadline:
+            raise AssertionError(f"Launch Services opens .apkg files with {opens_with or 'nothing'}, not the stand-in")
+        time.sleep(0.5)
+
+
 def _register_with_xdg(marker: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # Desktop file and MIME type in temporary XDG folders, so the user's own stay untouched.
+    # desktop file and MIME type in temporary XDG folders, so the user's own stay untouched.
     # xdg-open only reads desktop files when there's a display (CI uses xvfb-run).
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         pytest.fail("xdg-open needs a display to use desktop files: run the tests under xvfb-run")
@@ -125,7 +209,7 @@ def _register_with_xdg(marker: Path, tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 
 def _powershell(platform: str, script: str, **values: str) -> str:
-    # Runs Windows PowerShell natively or from WSL; values arrive as environment variables
+    # runs Windows PowerShell natively or from WSL; values arrive as environment variables
     # (forwarded into Windows by WSLENV), so nothing is quoted into the script.
     powershell = wsl.powershell() if platform == "wsl" else "powershell.exe"
     if powershell is None:

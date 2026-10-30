@@ -34,7 +34,7 @@ SCHEMAS = Path(__file__).resolve().parent / "schemas"
 
 PHASES = ["organize", "extract", "categorize", "synthesize", "refine", "complete"]
 
-# Exit codes shared by every `adb` command (documented in references/README.md).
+# exit codes shared by every `adb` command (documented in references/README.md).
 EXIT_OK = 0
 EXIT_FAIL = 1  # check ran and found problems
 EXIT_USAGE = 2  # bad command-line usage or input (click's convention)
@@ -211,14 +211,14 @@ def find_anki() -> str | None:
     if system == "Darwin":
         candidates += [Path("/Applications/Anki.app"), Path.home() / "Applications/Anki.app"]
     elif system == "Windows":
-        # Per-user installs go to %LOCALAPPDATA%\Programs\Anki, all-users installs to %ProgramFiles%\Anki.
+        # per-user installs go to %LOCALAPPDATA%\Programs\Anki, all-users installs to %ProgramFiles%\Anki.
         candidates += [
             Path(os.environ[v]) / sub
             for v, sub in (("LOCALAPPDATA", "Programs/Anki/Anki.exe"), ("PROGRAMFILES", "Anki/Anki.exe"))
             if v in os.environ
         ]
     elif wsl.is_wsl():
-        # The same Windows locations through the drive mounts, where names must match case-insensitively.
+        # the same Windows locations through the drive mounts, where names must match case-insensitively.
         root = wsl.mount_root()
         for pattern in ("*/Users/*/AppData/Local/Programs/Anki/Anki.exe", "*/Program Files/Anki/Anki.exe"):
             candidates += sorted(root.glob(pattern, case_sensitive=False))

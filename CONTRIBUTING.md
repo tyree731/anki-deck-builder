@@ -17,7 +17,7 @@ make test-fast   # skips the browser and integration tests while iterating
 
 Tests marked `platform` exercise the real OS: opening a deck with the registered app on
 Linux, Windows and WSL, and WSL detection and paths. They run only with
-`pytest --platform linux|windows|wsl`, which CI's pull-request jobs pass
+`pytest --platform linux|macos|windows|wsl`, which CI's pull-request jobs pass
 (`.github/workflows/platforms.yml`). Their `stand_in_anki` fixture makes a stand-in this
 user's app for `.apkg` files while a test runs, so run them on a CI runner, not your
 own machine. zizmor lints the workflows (`.github/workflows/zizmor.yml`); pin actions

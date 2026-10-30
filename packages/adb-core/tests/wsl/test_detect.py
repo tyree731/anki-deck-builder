@@ -67,12 +67,12 @@ def test_mount_root_reads_wsl_conf(tmp_path: Path):
     assert detect.mount_root(conf) == Path("/")
 
 
-@pytest.mark.platform("linux", "windows", "wsl")
+@pytest.mark.platform("linux", "macos", "windows", "wsl")
 def test_detection_matches_this_machine(ci_platform: str):
-    """test_detection_matches_this_machine: on a real machine, is_wsl() is true exactly under WSL, where Windows
-    programs can be started and drive C is visible under the mount root."""
+    """test_detection_matches_this_machine: on a real machine, is_wsl() and interop_enabled() are true exactly under
+    WSL, where drive C is visible under the mount root; native Linux, macOS and Windows get false for both."""
     on_wsl = ci_platform == "wsl"
     assert detect.is_wsl() is on_wsl
+    assert detect.interop_enabled() is on_wsl
     if on_wsl:
-        assert detect.interop_enabled()
         assert (detect.mount_root() / "c" / "Windows").is_dir()

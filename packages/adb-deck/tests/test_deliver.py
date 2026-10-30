@@ -166,7 +166,7 @@ def test_open_from_wsl_with_anki_inside_wsl_uses_the_linux_app(completed: Path, 
     assert len(opened) == 1 and under_wsl == []
 
 
-@pytest.mark.platform("linux", "windows", "wsl")
+@pytest.mark.platform("linux", "macos", "windows", "wsl")
 def test_open_in_anki_reaches_the_registered_app(completed: Path, stand_in_anki: Path, ci_platform: str):
     """test_open_in_anki_reaches_the_registered_app: on a real machine, the deck reaches the app registered for
     .apkg files (CI's stand-in, which records what it was given): directly, or through Windows under WSL."""
