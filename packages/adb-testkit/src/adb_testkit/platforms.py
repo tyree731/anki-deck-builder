@@ -8,7 +8,9 @@ import json
 import os
 import plistlib
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -114,7 +116,7 @@ def stand_in_anki(platform: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     so Anki counts as installed on Windows.
 
     Args:
-        platform: linux, windows or wsl.
+        platform: linux, macos, windows or wsl.
         tmp_path: A temporary folder for the stand-in's files.
         monkeypatch: Sets the environment for the test's duration.
 
@@ -129,6 +131,7 @@ def stand_in_anki(platform: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
             yield marker
         finally:
             subprocess.run([_LSREGISTER, "-u", str(app)], check=False)
+            shutil.rmtree(app.parent, ignore_errors=True)
         return
     if platform == "linux":
         _register_with_xdg(marker, tmp_path, monkeypatch)
@@ -149,11 +152,11 @@ def _placeholder(path: Path) -> Path:
     return path
 
 
-def _build_applet(marker: Path, tmp_path: Path) -> Path:
+def _build_applet(marker: Path, folder: Path) -> Path:
     # an app that claims .apkg files and records what it's asked to open. editing Info.plist
     # breaks the applet's signature, so it's signed again (ad hoc).
-    app = tmp_path / "Anki Stand-in.app"
-    script = tmp_path / "stand-in.applescript"
+    app = folder / "Anki Stand-in.app"
+    script = folder / "stand-in.applescript"
     literal = str(marker).replace("\\", "\\\\").replace('"', '\\"')
     script.write_text(_APPLET.replace("{marker}", literal))
     subprocess.run(["osacompile", "-o", str(app), str(script)], check=True)
@@ -171,7 +174,11 @@ def _opens_with(path: Path) -> str:
 
 def _register_with_launch_services(marker: Path, tmp_path: Path, timeout: float = 30.0) -> Path:
     # registers the stand-in, then waits until Launch Services would open an .apkg with it.
-    app = _build_applet(marker, tmp_path)
+    # Launch Services won't let an app in a temporary folder open files (it flags it
+    # in-temp-dir and launch-disabled), so the app is built under ~/Library/Caches instead.
+    home = Path.home() / "Library" / "Caches" / "anki-deck-builder-tests"
+    home.mkdir(parents=True, exist_ok=True)
+    app = _build_applet(marker, Path(tempfile.mkdtemp(prefix="stand-in-", dir=home)))
     subprocess.run([_LSREGISTER, "-f", str(app)], check=True)
     probe = tmp_path / "probe.apkg"
     probe.write_bytes(b"")
