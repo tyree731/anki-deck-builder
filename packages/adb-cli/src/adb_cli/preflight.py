@@ -14,7 +14,7 @@ from pathlib import Path
 
 import click
 
-from adb_core.common import EXIT_FAIL, find_browser
+from adb_core.common import EXIT_FAIL, find_anki, find_browser
 
 PACKAGES = [
     ("genanki", "genanki"),
@@ -69,6 +69,10 @@ def run_checks(input_dir: Path) -> int:
         "headless browser for card screenshots",
         browser is not None,
         browser or "install Google Chrome or Chromium, or set ANKI_DECK_BUILDER_CHROME",
+    )
+    anki = find_anki()
+    check(
+        "Anki desktop, to open the finished deck in it (optional)", anki is not None, anki or "not found", optional=True
     )
     is_dir = input_dir.is_dir()
     failed += check(f"input dir {input_dir}", is_dir, "" if is_dir else "not a directory")

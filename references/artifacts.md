@@ -2,7 +2,9 @@
 
 A run lives in `<input folder>/.anki-build/` (the "run dir"). Deliverables go to
 `<input folder>/anki-output/` (the "output dir"). Both names are set in `config.toml`
-`paths`. The user's own files are never modified.
+`paths`. The user's own files are never modified. Optionally, and only with the user's
+go-ahead, `adb deliver` also puts the finished deck into their Anki; each delivery is
+recorded under `deliveries` in the output dir's `summary.json`.
 
 ```
 .anki-build/

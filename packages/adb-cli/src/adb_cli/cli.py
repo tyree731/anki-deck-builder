@@ -36,6 +36,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "study-guide": ("adb_deck.study_guide", "render the deck as a printable study guide"),
     "export-transcripts": ("adb_deck.export_transcripts", "page transcriptions as one Markdown file per source"),
     "complete": ("adb_deck.complete", "deliver the signed-off deck and its companions"),
+    "deliver": ("adb_deck.deliver", "optionally put the finished deck into Anki: open it, or import + sync"),
 }
 
 

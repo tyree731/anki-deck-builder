@@ -32,7 +32,7 @@ and every card looked at (question, then revealed answer) before it ships.
 | 3 | **Categorize** | you, from `adb digest` | `categories.json` (deck name, sources as subdecks, topics, page assignments) | every page has a source and topics (or a skip reason) |
 | 4 | **Synthesize** | parallel author workers (`workers/author_worker.md`), then `adb make-deck` | `cards/<subset>.json`, `build/cards.json`, `build/lint.json`, `build/deck.apkg` | lint has no unwaived errors; deck imports into Anki cleanly |
 | 5 | **Refine** | review workers (`workers/review_worker.md`) + you | `refine/round_N/...`, `refine/signoff.json` | every card in each round's review set was viewed; every finding decided; signoff matches the deck's exact bytes |
-| 6 | **Complete** | `adb complete` + you | output dir: `<Deck>.apkg`, `Study Guide.html`, `transcriptions/`, `deck-source/`, `summary.json` | delivered deck is the signed-off deck and re-validates |
+| 6 | **Complete** | `adb complete` + you; optionally `adb deliver` | output dir: `<Deck>.apkg`, `Study Guide.html`, `transcriptions/`, `deck-source/`, `summary.json`; optionally the deck imported into the user's Anki | delivered deck is the signed-off deck and re-validates |
 
 Each phase has its own instructions in `phases/`. **Open the phase file when you enter
 the phase; do not work from this summary.** A missing phase file is fatal: stop and tell
@@ -137,7 +137,9 @@ one, stop: that is the failure mode this skill exists to prevent.
    questions are `origin: model_answer` (or `model_goal` for "know how to" goals); fixes to
    the learner's mistakes are `origin: correction` with a kind explanation. The build
    adds the ✎ / ⚠ labels; never present your own content as theirs.
-5. **Inputs are read-only.** Write only inside the run and output dirs.
+5. **Inputs are read-only.** Write only inside the run and output dirs. The one exception
+   is Phase 6's optional delivery into the user's Anki (`adb deliver`), and only after
+   they say yes in this run.
 6. **Vision decides what to extract.** Workers look at every page region and choose crops
    by eye on a coordinate grid. `adb imgtool` only does the pixel work.
 
@@ -192,6 +194,6 @@ not this; fix those in flow.
 | `references/card-writing-rules.md` | Card rules CW-1 to CW-16 and lint rules L01 to L14 (authors, you during triage) |
 | `references/review-rubric.md` | What reviewers check, severities, categories, triage decisions |
 | `references/note-types.md` | Note types, fields, macros (`{{img:}}`, `{{chem:}}`), styling, provenance labels |
-| `references/device-import.md` | Getting the deck onto AnkiMobile / AnkiDroid / AnkiWeb, and study-pace advice |
+| `references/device-import.md` | Getting the deck onto AnkiMobile / AnkiDroid / AnkiWeb, straight into Anki desktop (AnkiConnect), and study-pace advice |
 | `references/README.md` | Index, exit codes |
 | `config.toml` | Run-dir names, batch sizes, review limits, checkpoints, labels, lint patterns |

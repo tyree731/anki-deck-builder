@@ -72,6 +72,13 @@ internal_ref_patterns = [
 max_front_words = 60
 max_back_words = 120
 
+[deliver]
+# optional delivery into Anki on this computer after Complete (`adb deliver`), only with
+# the user's go-ahead. AnkiConnect is the Anki add-on 2055492159.
+ankiconnect_url = "http://127.0.0.1:8765"
+# sync to AnkiWeb after an AnkiConnect import that delivered every note, unless --no-sync.
+sync_after_import = false
+
 [models]
 # model for each subagent role. leave a key unset to inherit the orchestrator's model.
 # extract_worker = ""

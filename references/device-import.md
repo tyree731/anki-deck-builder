@@ -26,6 +26,28 @@ cannot import `.apkg` files.
 3. Click **Sync**, and sign in with the learner's AnkiWeb account.
 4. On the phone or tablet, sign in with the same account and tap **Sync**.
 
+## Straight into Anki on this computer (`adb deliver`)
+
+At the end of a run, the skill can also put the deck into Anki desktop on the computer
+it ran on, if the user agrees:
+
+- **Open it in Anki.** No setup. Anki shows its import dialog; click **Import**, then
+  **Sync** to send it to AnkiWeb.
+- **Import it, and optionally sync, through AnkiConnect.** This needs the AnkiConnect
+  add-on, set up once: in Anki, **Tools > Add-ons > Get Add-ons...**, enter code
+  `2055492159`, then restart Anki. Keep Anki open while the skill imports. It checks that
+  every note arrived, then syncs with the AnkiWeb login Anki already has. The skill
+  never sees the password. If Anki asks about a full sync, answer in Anki's own window.
+
+On **WSL** (Windows Subsystem for Linux), both work with Anki installed on Windows: the
+deck is handed to Windows to open, or to import, as long as WSL's interop is on (it is
+unless `/etc/wsl.conf` sets `[interop] enabled=false`). WSL2 reaches AnkiConnect on
+Windows only with mirrored networking (Windows 11 22H2 or later): add
+`networkingMode=mirrored` under `[wsl2]` in `%UserProfile%\.wslconfig`, then run
+`wsl --shutdown` and reopen the terminal.
+
+Once it's on AnkiWeb, the phone or tablet only needs a **Sync**.
+
 ## Updating later
 
 Re-import the rebuilt `.apkg` the same way. Notes keep stable IDs, so existing cards

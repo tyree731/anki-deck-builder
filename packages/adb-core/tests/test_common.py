@@ -3,7 +3,7 @@
 import hashlib
 from pathlib import Path
 
-from adb_core import common
+from adb_core import common, wsl
 
 
 def test_chem_html_subscripts_atoms_not_coefficients():
@@ -70,6 +70,40 @@ def test_find_browser_honors_override(tmp_path: Path, monkeypatch):
     assert common.find_browser() == str(fake)
 
 
+def test_find_anki_honors_override(tmp_path: Path, monkeypatch):
+    """test_find_anki_honors_override: ANKI_DECK_BUILDER_ANKI wins when it points at an existing path."""
+    fake = tmp_path / "Anki.app"
+    fake.mkdir()
+    monkeypatch.setenv("ANKI_DECK_BUILDER_ANKI", str(fake))
+    assert common.find_anki() == str(fake)
+
+
+def test_find_anki_sees_windows_install_from_wsl(tmp_path: Path, monkeypatch):
+    """test_find_anki_sees_windows_install_from_wsl: under WSL, Anki installed for a Windows user is found on the
+    mounted drive, whatever the case of its file name (older installers wrote anki.exe, current ones Anki.exe)."""
+    exe = tmp_path / "c/Users/kid/AppData/Local/Programs/Anki/anki.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    monkeypatch.delenv("ANKI_DECK_BUILDER_ANKI", raising=False)
+    monkeypatch.setattr(common.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(wsl, "is_wsl", lambda: True)
+    monkeypatch.setattr(wsl, "mount_root", lambda: tmp_path)
+    assert common.find_anki() == str(exe)
+
+
+def test_find_anki_sees_the_flatpak(tmp_path: Path, monkeypatch):
+    """test_find_anki_sees_the_flatpak: on Linux, the launcher Flatpak keeps for an installed Anki counts."""
+    launcher = tmp_path / ".local/share/flatpak/exports/bin/net.ankiweb.Anki"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text("")
+    monkeypatch.delenv("ANKI_DECK_BUILDER_ANKI", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(common.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(wsl, "is_wsl", lambda: False)
+    monkeypatch.setattr(common.shutil, "which", lambda name: None)
+    assert common.find_anki() == str(launcher)
+
+
 def test_load_config_has_every_section():
     """test_load_config_has_every_section: config.toml carries the sections the scripts read."""
     cfg = common.load_config()
@@ -83,5 +117,6 @@ def test_load_config_has_every_section():
         "checkpoints",
         "labels",
         "lint",
+        "deliver",
     ):
         assert section in cfg

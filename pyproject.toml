@@ -40,6 +40,7 @@ filterwarnings = [
 markers = [
     "integration: builds, imports or renders a real deck with genanki/anki",
     "browser: needs a headless Chrome/Chromium for screenshots",
+    "platform(*names): real OS behavior; runs only with --platform set to one of names (CI's platform jobs)",
 ]
 
 [tool.ruff]
