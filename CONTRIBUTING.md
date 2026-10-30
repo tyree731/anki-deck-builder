@@ -15,6 +15,16 @@ make check       # ruff, pyright and every test; must pass before a change is do
 make test-fast   # skips the browser and integration tests while iterating
 ```
 
+Tests marked `platform` exercise the real OS: opening a deck with the registered app on
+Linux, Windows and WSL, and WSL detection and paths. They run only with
+`pytest --platform linux|macos|windows|wsl`, which CI's pull-request jobs pass
+(`.github/workflows/platforms.yml`). Their `stand_in_anki` fixture makes a stand-in this
+user's app for `.apkg` files while a test runs, so run them on a CI runner, not your
+own machine. Platform-specific behavior (WSL detection, file associations, install
+locations) is tested only there, on the real platform; a unit test that fakes the platform
+only checks the strings it was handed. zizmor lints the workflows (`.github/workflows/zizmor.yml`); pin actions
+to a full commit SHA with a `# vX.Y.Z` comment.
+
 ## Code conventions
 
 - **Python 3.14+.** uv resolves only releases at least 3 days old (`exclude-newer`).
@@ -34,6 +44,10 @@ make test-fast   # skips the browser and integration tests while iterating
   bodies. Tests cover the functions, not exit codes or printed output. A CLI test is worth
   writing only when it covers something the functions can't, like a file one command
   writes for another to read.
+- **Opening files and other platform specifics:** `click.launch` opens a file with its
+  registered app on macOS, Windows and Linux. WSL needs more, and that lives in the
+  `adb_core.wsl` subpackage (standard library only): detection, interop, Windows paths
+  and handing files to Windows.
 - **Generated files come from Jinja templates** in a package's `templates/` folder, rendered
   with `adb_core.templating.render`. Name a template for what it produces plus `.jinja`
   (`study_guide.html.jinja`). HTML templates autoescape, so pass trusted HTML such as card

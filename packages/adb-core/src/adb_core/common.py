@@ -7,10 +7,13 @@ Pure standard library, so preflight can import it before checking third-party pa
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import tomllib
 from pathlib import Path
+
+from adb_core import wsl
 
 
 def _find_skill_root() -> Path:
@@ -31,7 +34,7 @@ SCHEMAS = Path(__file__).resolve().parent / "schemas"
 
 PHASES = ["organize", "extract", "categorize", "synthesize", "refine", "complete"]
 
-# Exit codes shared by every `adb` command (documented in references/README.md).
+# exit codes shared by every `adb` command (documented in references/README.md).
 EXIT_OK = 0
 EXIT_FAIL = 1  # check ran and found problems
 EXIT_USAGE = 2  # bad command-line usage or input (click's convention)
@@ -189,6 +192,48 @@ def run_paths(run_dir: Path | str) -> dict[str, Path]:
         "build": r / "build",
         "refine": r / "refine",
     }
+
+
+def find_anki() -> str | None:
+    """Locate the Anki desktop app, to check that a finished deck can be opened in it.
+
+    ANKI_DECK_BUILDER_ANKI, when it points at an existing path, wins over discovery. Under
+    WSL, an Anki installed on Windows counts; on Linux, so does the Flatpak.
+
+    Returns:
+        The app bundle, executable or Flatpak launcher, or None if Anki isn't installed.
+    """
+    override = os.environ.get("ANKI_DECK_BUILDER_ANKI")
+    if override and Path(override).exists():
+        return override
+    system = platform.system()
+    candidates: list[Path] = []
+    if system == "Darwin":
+        candidates += [Path("/Applications/Anki.app"), Path.home() / "Applications/Anki.app"]
+    elif system == "Windows":
+        # per-user installs go to %LOCALAPPDATA%\Programs\Anki, all-users installs to %ProgramFiles%\Anki.
+        candidates += [
+            Path(os.environ[v]) / sub
+            for v, sub in (("LOCALAPPDATA", "Programs/Anki/Anki.exe"), ("PROGRAMFILES", "Anki/Anki.exe"))
+            if v in os.environ
+        ]
+    elif wsl.is_wsl():
+        # the same Windows locations through the drive mounts, where names must match case-insensitively.
+        root = wsl.mount_root()
+        for pattern in ("*/Users/*/AppData/Local/Programs/Anki/Anki.exe", "*/Program Files/Anki/Anki.exe"):
+            candidates += sorted(root.glob(pattern, case_sensitive=False))
+    for path in candidates:
+        if path.exists():
+            return str(path)
+    found = shutil.which("anki")
+    if found:
+        return found
+    # Flatpak keeps a launcher for each installed app, system-wide and per user.
+    for base in (Path("/var/lib/flatpak"), Path.home() / ".local/share/flatpak"):
+        launcher = base / "exports/bin/net.ankiweb.Anki"
+        if launcher.exists():
+            return str(launcher)
+    return None
 
 
 def find_browser() -> str | None:

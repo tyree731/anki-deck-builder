@@ -1,0 +1,137 @@
+name: platforms
+
+on:
+  pull_request:
+
+permissions: {}
+
+env:
+  UV_VERSION: "0.13.6"
+
+jobs:
+  linux:
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install xdg-open and its helpers
+        # xdg-open needs a display to use desktop files (hence xvfb), and xdg-mime matches
+        # by file name only with `mimetype` (libfile-mimeinfo-perl), as desktops do.
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xdg-utils libfile-mimeinfo-perl shared-mime-info xvfb
+
+      - name: Lint
+        run: uv run --frozen ruff check packages
+
+      - name: Typecheck
+        run: uv run --frozen pyright
+
+      - name: Platform tests
+        run: xvfb-run -a uv run --frozen pytest --platform linux -m platform -v -rs
+
+  macos:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Lint
+        run: uv run --frozen ruff check packages
+
+      - name: Typecheck
+        run: uv run --frozen pyright
+
+      - name: Platform tests
+        run: uv run --frozen pytest --platform macos -m platform -v -rs
+
+  windows:
+    runs-on: windows-2025
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Lint
+        run: uv run --frozen ruff check packages
+
+      - name: Typecheck
+        run: uv run --frozen pyright
+
+      - name: Platform tests
+        run: uv run --frozen pytest --platform windows -m platform -v -rs
+
+  wsl:
+    name: wsl ${{ matrix.wsl-version }}
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        wsl-version: [1, 2]
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up WSL
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
+        with:
+          distribution: Ubuntu-26.04
+          wsl-version: ${{ matrix.wsl-version }}
+          additional-packages: curl ca-certificates git
+
+      # actions run on the Windows host, so setup-uv can't install uv inside WSL. the shallow
+      # clone puts the checkout in the Linux filesystem, with Linux line endings.
+      - name: Set up uv and the repository inside WSL
+        env:
+          REPO: ${{ github.workspace }}
+          WSLENV: REPO/p:UV_VERSION
+        run: |
+          curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | sh
+          git -c safe.directory='*' clone --depth 1 "file://$REPO" "$HOME/adb"
+
+      - name: Lint
+        run: cd "$HOME/adb" && "$HOME/.local/bin/uv" run --frozen ruff check packages
+
+      - name: Typecheck
+        run: cd "$HOME/adb" && "$HOME/.local/bin/uv" run --frozen pyright
+
+      - name: Platform tests
+        run: cd "$HOME/adb" && "$HOME/.local/bin/uv" run --frozen pytest --platform wsl -m platform -v -rs

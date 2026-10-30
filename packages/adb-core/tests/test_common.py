@@ -70,6 +70,14 @@ def test_find_browser_honors_override(tmp_path: Path, monkeypatch):
     assert common.find_browser() == str(fake)
 
 
+def test_find_anki_honors_override(tmp_path: Path, monkeypatch):
+    """test_find_anki_honors_override: ANKI_DECK_BUILDER_ANKI wins when it points at an existing path."""
+    fake = tmp_path / "Anki.app"
+    fake.mkdir()
+    monkeypatch.setenv("ANKI_DECK_BUILDER_ANKI", str(fake))
+    assert common.find_anki() == str(fake)
+
+
 def test_load_config_has_every_section():
     """test_load_config_has_every_section: config.toml carries the sections the scripts read."""
     cfg = common.load_config()
@@ -83,5 +91,6 @@ def test_load_config_has_every_section():
         "checkpoints",
         "labels",
         "lint",
+        "deliver",
     ):
         assert section in cfg

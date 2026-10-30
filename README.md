@@ -28,6 +28,10 @@ In `anki-output/` inside the folder you pointed it at:
 - **`deck-source/`:** the cards, deck structure and images, for rebuilding.
 - **`summary.json`:** counts per subdeck and review statistics.
 
+If you say yes at the end, it can also put the deck straight into Anki desktop on this
+computer: either by opening Anki's import dialog, or through the AnkiConnect add-on, which
+can also sync it to AnkiWeb for your phone or tablet.
+
 Rebuilt decks keep stable note IDs, so re-importing updates cards in place without
 losing review history.
 
@@ -37,6 +41,8 @@ losing review history.
   and every package.
 - Google Chrome or Chromium, used headless to screenshot cards during review. Set
   `ANKI_DECK_BUILDER_CHROME` to use another Chromium-based browser.
+- Optional: Anki desktop, and its AnkiConnect add-on (code `2055492159`), to import the
+  finished deck straight into Anki and sync it to AnkiWeb.
 - An agent host that supports Agent Skills, can run shell commands, and can start
   subagents for the parallel phases.
 
@@ -134,7 +140,7 @@ pyproject.toml           workspace root, plus pytest, ruff and pyright config
 uv.lock
 Makefile
 packages/
-  adb-core/      state, validate (+ JSON schemas), subsets, digest, templating, common
+  adb-core/      state, validate (+ JSON schemas), subsets, digest, templating, wsl, common
   adb-ingest/    organize, imgtool
   adb-deck/      assemble, lint, build, validate-deck, make-deck, study guide, complete
   adb-review/    render, shoot, refine

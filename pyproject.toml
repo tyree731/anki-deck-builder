@@ -33,13 +33,14 @@ testpaths = ["packages/*/tests"]
 python_files = ["test_*.py"]
 addopts = ["--import-mode=importlib", "-p", "adb_testkit.plugin"]
 # genanki depends on cached_property, which calls asyncio.iscoroutinefunction (deprecated
-# in Python 3.14). Silence exactly that third-party warning; anything else still shows.
+# in Python 3.14). silence exactly that third-party warning; anything else still shows.
 filterwarnings = [
     "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:cached_property",
 ]
 markers = [
     "integration: builds, imports or renders a real deck with genanki/anki",
     "browser: needs a headless Chrome/Chromium for screenshots",
+    "platform(*names): real OS behavior; runs only with --platform set to one of names (CI's platform jobs)",
 ]
 
 [tool.ruff]
@@ -48,7 +49,7 @@ line-length = 120
 src = ["packages/*/src"]
 
 [tool.ruff.lint]
-# D417: a Google-style "Args:" section must document every parameter. Shared functions
+# D417: a Google-style "Args:" section must document every parameter. shared functions
 # document parameters, returns and raises in Args/Returns/Raises sections, not prose.
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "D417", "TID251"]
 # non-ASCII appears only in learner-facing output: the provenance labels and the card
