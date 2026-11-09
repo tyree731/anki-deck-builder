@@ -85,6 +85,12 @@ front shows only masked figures. *(L11/L12.)*
 (p012), transcript or tool references. The footer is generated as `Source · section or
 topic`; make `section` match the card's content. *(L04 is an error.)*
 
+**CW-17. Mark what's core.** `priority` is `core` (the default) or `supporting`. Core is what
+the materials say to know: learning goals, practice questions, definitions and labeled
+parts the teacher emphasizes. Supporting is background, extra examples and side details.
+New cards are introduced core first, so when time before a test runs short, the core cards
+are the ones studied. When in doubt, leave it core.
+
 ## Lint rules (mechanical)
 
 | Rule | Level | Check |

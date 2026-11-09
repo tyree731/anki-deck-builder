@@ -72,12 +72,21 @@ internal_ref_patterns = [
 max_front_words = 60
 max_back_words = 120
 
+[plan]
+# pacing toward a test date (categories.json test_date): the last days are for reviews only.
+review_days_before_test = 2
+# new cards a day stays within these bounds; the build orders new cards core first either way.
+min_new_per_day = 10
+max_new_per_day = 50
+
 [deliver]
 # optional delivery into Anki on this computer after Complete (`adb deliver`), only with
 # the user's go-ahead. AnkiConnect is the Anki add-on 2055492159.
 ankiconnect_url = "http://127.0.0.1:8765"
 # sync to AnkiWeb after an AnkiConnect import that delivered every note, unless --no-sync.
 sync_after_import = false
+# with a test date, give the deck its own options preset with the planned new cards a day.
+apply_study_plan = true
 
 [models]
 # model for each subagent role. leave a key unset to inherit the orchestrator's model.

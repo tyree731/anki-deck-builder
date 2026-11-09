@@ -27,6 +27,9 @@ In `anki-output/` inside the folder you pointed it at:
 - **`transcriptions/`:** a page-by-page transcription of every input.
 - **`deck-source/`:** the cards, deck structure and images, for rebuilding.
 - **`summary.json`:** counts per subdeck and review statistics.
+- **A pace for the test:** given a test date, new cards are ordered core first and the
+  summary says how many to study a day so every card is seen before the test, with the
+  last days for reviews. Delivered through AnkiConnect, the deck gets those settings too.
 
 If you say yes at the end, it can also put the deck straight into Anki desktop on this
 computer: either by opening Anki's import dialog, or through the AnkiConnect add-on, which
@@ -122,6 +125,8 @@ configuration only from the skill, never from the folder being processed.
 | `labels` | the ✎ / ⚠ provenance text shown on cards |
 | `lint` | internal-reference patterns and card length limits |
 | `complete` | which companion files to produce |
+| `plan` | pacing toward a test date: review-only days and the new-cards-a-day bounds |
+| `deliver` | AnkiConnect address, and whether to sync and apply the study plan |
 | `models` | model for each subagent role (unset inherits the orchestrator's) |
 
 ## Project structure

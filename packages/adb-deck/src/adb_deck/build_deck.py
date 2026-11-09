@@ -196,7 +196,20 @@ def build(run_dir: Path, out_path: Path) -> dict:
 
     used = set()
     deck_slug = slugify(root)
-    for c in cards:
+    # new cards are introduced core first, then in teaching order: topic, source, authoring order.
+    source_order = {s["id"]: s["order"] for s in cats["sources"]}
+    topic_order = {t["slug"]: t["order"] for t in cats["topics"]}
+    ranked = sorted(
+        range(len(cards)),
+        key=lambda i: (
+            cards[i].get("priority", "core") != "core",
+            topic_order.get(cards[i]["topic"], len(topic_order)),
+            source_order[cards[i]["source"]],
+            i,
+        ),
+    )
+    position = {i: rank for rank, i in enumerate(ranked)}
+    for i, c in enumerate(cards):
         src = sources[c["source"]]
         footer = f"{src['label']} · {c.get('section') or topics.get(c['topic'], c['topic'])}"
         flag = ""
@@ -209,8 +222,16 @@ def build(run_dir: Path, out_path: Path) -> dict:
         extra = expand(c.get("extra", ""), prefix) + flag
         image_html = "".join(f'<img src="{prefix}{n}">' for n in c.get("images", []))
         used.update(referenced_media(c))
-        tags = ["anki_deck_builder", c["source"], f"topic::{c['topic']}", f"origin::{c['origin']}", *c.get("tags", [])]
-        common = {"guid": genanki.guid_for(deck_slug, c["key"]), "tags": tags}
+        priority = c.get("priority", "core")
+        tags = [
+            "anki_deck_builder",
+            c["source"],
+            f"topic::{c['topic']}",
+            f"origin::{c['origin']}",
+            f"priority::{priority}",
+            *c.get("tags", []),
+        ]
+        common = {"guid": genanki.guid_for(deck_slug, c["key"]), "tags": tags, "due": position[i]}
         if c["type"] == "basic":
             note = genanki.Note(
                 model=basic_m,

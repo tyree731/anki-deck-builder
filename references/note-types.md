@@ -40,9 +40,18 @@ desktop app.
 
 ## Tags
 
-Every note gets the tags `anki_deck_builder`, `<source id>`, `topic::<slug>` and
-`origin::<origin>`, plus any `tags` the card lists. Learners can filter in Anki's
-browser, or use Custom Study by tag.
+Every note gets the tags `anki_deck_builder`, `<source id>`, `topic::<slug>`,
+`origin::<origin>` and `priority::<core|supporting>`, plus any `tags` the card lists.
+Learners can filter in Anki's browser, or use Custom Study by tag (for example, only
+`priority::core` the night before the test).
+
+## New-card order
+
+New cards are positioned core first, then in teaching order (topic, then source, then the
+order authors wrote them). Anki keeps these positions on import. Within each subdeck they
+are studied in that order by default; across subdecks, it takes the deck's **New card
+gather order** set to **Ascending position**, which `adb deliver ankiconnect` sets for
+the deck's own options preset.
 
 ## Styling
 

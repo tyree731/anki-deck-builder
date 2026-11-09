@@ -47,6 +47,24 @@ Then ask the user, with your host's question tool if it has one. Offer only the 
 - *Import it and sync to AnkiWeb*: `adb deliver ankiconnect "<RUN_DIR>" --sync`. Their
   phone or tablet then gets the deck on its next sync.
 
+With a test date, both AnkiConnect imports also pace the deck: it gets its own options
+preset with the planned new cards a day, gathered core first. Mention that in the option.
+If the user would rather keep their own settings, add `--no-pace`.
+
+**Changing the pace later.** When the user asks for more or fewer new cards a day, or the
+test date moves (or a deck built without one now has one), use `adb deliver pace`. It
+changes only the deck's own options preset, and needs the deck already in Anki and Anki
+open with AnkiConnect:
+
+```bash
+adb deliver pace "<RUN_DIR>" --new-per-day 30 --sync      # an exact number
+adb deliver pace "<RUN_DIR>" --test-date 2026-11-20 --sync # replan for a test date
+adb deliver pace "<RUN_DIR>" --sync                        # replan the same test for today
+```
+
+`adb deliver sync` syncs to AnkiWeb on its own. Never change Anki with ad hoc AnkiConnect
+calls; if a command is missing, say so instead.
+
 If AnkiConnect isn't available but the user wants it, give the setup steps from
 `references/device-import.md` and offer *Open it in Anki* meanwhile. The import checks
 that every note arrived. If any is missing it doesn't sync: report the missing keys and
@@ -68,10 +86,15 @@ asking about a full sync), the user answers it there; never try to answer it for
 - **Getting it onto the device:** what step 3 did (imported, synced, or opened in Anki).
   If it isn't on AnkiWeb yet, the steps from `references/device-import.md` for their
   device if known, otherwise the iPad and Android versions briefly.
-- **Pace:** if a test date is known, use the new-cards-per-day advice in
-  `references/device-import.md`.
+- **Pace:** if there's a test date, lead with `summary.study_plan`: "Study N new cards a
+  day; core cards first. Every card is seen by <all_seen_by>, and from <reviews_from> it's
+  reviews only." If `fits` is false, say plainly that not every card can be seen in time,
+  and when the core cards will have been. If step 3 paced the deck through AnkiConnect,
+  say so; otherwise give the manual setting from `references/device-import.md`.
 - **Changing cards later:** re-running the skill on the same folder resumes the run, and
   re-importing updates cards in place without losing review history.
+- **Changing the pace later:** if the deck went in through AnkiConnect, the pace can be
+  raised, lowered or replanned for a new test date (`adb deliver pace`, above).
 
 Keep it scannable. Don't paste file contents. If this environment can publish shareable
 pages and the study guide would be useful to share, offer that in one line.

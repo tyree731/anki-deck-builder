@@ -54,14 +54,23 @@ Re-import the rebuilt `.apkg` the same way. Notes keep stable IDs, so existing c
 update in place and review history is kept. Don't delete the old deck first: that
 discards the history.
 
-## Pace advice for a test date
+## Pace for a test date
 
-Anki introduces **20 new cards a day** by default, so a 300-card deck takes about 15
-days to introduce. If the test is sooner:
+When the deck has a test date, Complete plans the pace (`summary.json` `study_plan`): how
+many new cards a day so every card is seen before the test, with the last days for
+reviews only (`config.toml` `[plan]`). New cards are already ordered core first.
 
-- Raise **New cards/day** in the deck's options (the gear next to the deck, then
-  Options), to about `cards / (days until the test - 2)`. That leaves the last two days
-  for reviews only.
-- Or use **Custom Study > Increase today's new card limit** for a one-off push.
+- **Delivered through AnkiConnect:** `adb deliver ankiconnect` applies the plan, recomputed
+  for the day of delivery. The deck and its subdecks get their own options preset, named
+  after the deck, with that many new cards a day and **New card gather order: Ascending
+  position**, so core cards come first across subdecks. Other decks' options don't change.
+  Later, `adb deliver pace` changes it: an exact number (`--new-per-day`), a new test date
+  (`--test-date`), or the same plan recomputed for today.
+- **Imported by hand (tablet, phone, Anki desktop):** open the deck's options (the gear next
+  to the deck, then Options), save them as a new preset for this deck, then set **New
+  cards/day** to the plan's number and **Display Order > New card gather order** to
+  **Ascending position**. Set it once, on the device used for studying; with AnkiWeb, it
+  syncs to the others.
+- For a one-off push, use **Custom Study > Increase today's new card limit**.
 - Studying the parent deck covers every subdeck. To focus on one source, study its
-  subdeck alone.
+  subdeck alone. To study only the core cards, use Custom Study by tag `priority::core`.

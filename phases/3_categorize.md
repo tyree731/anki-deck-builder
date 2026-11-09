@@ -41,6 +41,10 @@ other page must end up with at least one card. Lint rule L13 enforces this.
 - `audience` comes from the user's request if they said it. Otherwise use the materials
   (a grade level printed on a handout). Otherwise say `the learner`.
 - Optional `purpose`: "Quarter 1 test", "AP Bio unit 2 exam".
+- Optional `test_date` (`YYYY-MM-DD`), when the deck is for a test. Take it from the
+  request ("my test is on Friday", resolved against today's date), or ask at the
+  checkpoint. It paces the deck: Complete plans how many new cards a day to study so every
+  card is seen before the test, core cards first (`config.toml` `[plan]`).
 
 **6. Note disagreements between sources.** Put them in `cross_source_notes`. For example:
 "Packet: cell is the basic unit of structure and *function*; handout: structure and
@@ -53,6 +57,7 @@ other page must end up with at least one card. Lint rule L13 enforces this.
   "deck_root": "Grade 7 Science Q1 - Cells",
   "audience": "7th grade",
   "purpose": "Quarter 1 test",
+  "test_date": "2026-11-14",
   "sources": [
     {"id": "notes", "label": "Class notes", "subdeck": "1 Class Notes", "description": "Her science notebook (19 pages)", "order": 1},
     {"id": "packet", "label": "Review packet", "subdeck": "2 Review Packet", "description": "Quarter 1 Study Guide (6 pages)", "order": 2}
@@ -74,8 +79,8 @@ adb state set "<RUN_DIR>" --deck-name "Grade 7 Science Q1 - Cells" --audience "7
 
 **8. Checkpoint.** This runs if `config.toml` has `after_categorize = true` under `[checkpoints]`,
 which is the default. Ask with AskUserQuestion. Make the question stand on its own: state
-the proposed deck name, list each subdeck with its page count, and give the audience.
-Options:
+the proposed deck name, list each subdeck with its page count, and give the audience and
+the test date (or ask for it, if there's a test and you don't know the date). Options:
 - *Looks right (Recommended)*
 - *Change the names*: they type the changes into the free-text option
 - *Split or merge the subdecks differently*

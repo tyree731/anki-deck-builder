@@ -10,7 +10,7 @@ SKILL_DIR from your prompt.
 
 ## Read first
 
-1. `<SKILL_DIR>/references/card-writing-rules.md`: the rules every card follows (CW-1 to CW-16).
+1. `<SKILL_DIR>/references/card-writing-rules.md`: the rules every card follows (CW-1 to CW-17).
    Most were learned from real review findings; they are not style preferences.
 2. `<SKILL_DIR>/references/note-types.md`: the three note types, macros and provenance.
 3. `RUN_DIR/categories.json`: deck name, sources, topic slugs, audience, cross-source notes.
@@ -60,6 +60,8 @@ unique, and is stable (`s03_mito_function`, not `s03_card17`).
   - `correction`: needs a `correction` text, written kindly to the learner.
   The build adds the ✎ and ⚠ labels; don't write them yourself.
 - `pages`: every page the card draws on. This is provenance, never shown on the card.
+- `priority`: `core` (the default) or `supporting`. New cards are introduced core first,
+  so when there's little time before a test, the core cards are the ones studied. See CW-17.
 - `section`: optional footer label (e.g. the packet's section name). The footer otherwise
   shows the topic label.
 - `images`: shown on the **back** only. The front gets an image only via a `diagram`'s
