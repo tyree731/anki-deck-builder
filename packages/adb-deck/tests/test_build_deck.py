@@ -6,8 +6,10 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from anki.collection import Collection, ImportAnkiPackageOptions, ImportAnkiPackageRequest
 
 from adb_deck import assemble_cards, build_deck
+from adb_testkit import write_json
 
 
 def test_expand_macros():
@@ -68,3 +70,25 @@ def test_build_fails_on_missing_media(run_dir: Path, tmp_path: Path):
     (run_dir / "media" / "p002_box.jpg").unlink()
     with pytest.raises(FileNotFoundError):
         build_deck.build(run_dir, tmp_path / "deck.apkg")
+
+
+@pytest.mark.integration
+def test_build_introduces_core_cards_first(run_dir: Path, tmp_path: Path):
+    """test_build_introduces_core_cards_first: after a real import, new cards come core first, in teaching order
+    (topic, then source), with the supporting note last; each note is tagged with its priority."""
+    assemble_cards.assemble_into_build(run_dir)
+    cards = json.loads((run_dir / "build" / "cards.json").read_text())
+    cards[0]["priority"] = "supporting"  # nt_cell
+    write_json(run_dir / "build" / "cards.json", cards)
+    build_deck.build(run_dir, tmp_path / "deck.apkg")
+    col = Collection(str(tmp_path / "collection.anki2"))
+    try:
+        request = ImportAnkiPackageRequest(package_path=str(tmp_path / "deck.apkg"), options=ImportAnkiPackageOptions())
+        col.import_anki_package(request)
+        new = sorted((col.get_card(i) for i in col.find_cards("is:new")), key=lambda c: (c.due, c.ord))
+        order = list(dict.fromkeys(c.note()["Key"] for c in new))
+        supporting = [col.get_note(n)["Key"] for n in col.find_notes("tag:priority::supporting")]
+    finally:
+        col.close()
+    assert order == ["nt_vacuole", "pk_model", "pk_eq", "nt_box_1", "nt_box_2", "pk_organelle", "nt_cell"]
+    assert supporting == ["nt_cell"]

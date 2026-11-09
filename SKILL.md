@@ -29,7 +29,7 @@ and every card looked at (question, then revealed answer) before it ships.
 |---|-------|-------------------|---------------------------|---------------------------|
 | 1 | **Organize** | `adb organize` + you | `manifest.json`, `pages/`, `sheets/contact_*.jpg`, `subsets/extract.json` | manifest valid; contact sheets; every page planned exactly once |
 | 2 | **Extract** | parallel extract workers (`workers/extract_worker.md`) | `transcripts/<page>.md`, `figures/<page>.json`, `media/` crops + masked + redrawn figures | every page transcribed and validated; every subset done |
-| 3 | **Categorize** | you, from `adb digest` | `categories.json` (deck name, sources as subdecks, topics, page assignments) | every page has a source and topics (or a skip reason) |
+| 3 | **Categorize** | you, from `adb digest` | `categories.json` (deck name, sources as subdecks, topics, page assignments, optional test date) | every page has a source and topics (or a skip reason) |
 | 4 | **Synthesize** | parallel author workers (`workers/author_worker.md`), then `adb make-deck` | `cards/<subset>.json`, `build/cards.json`, `build/lint.json`, `build/deck.apkg` | lint has no unwaived errors; deck imports into Anki cleanly |
 | 5 | **Refine** | review workers (`workers/review_worker.md`) + you | `refine/round_N/...`, `refine/signoff.json` | every card in each round's review set was viewed; every finding decided; signoff matches the deck's exact bytes |
 | 6 | **Complete** | `adb complete` + you; optionally `adb deliver` | output dir: `<Deck>.apkg`, `Study Guide.html`, `transcriptions/`, `deck-source/`, `summary.json`; optionally the deck imported into the user's Anki | delivered deck is the signed-off deck and re-validates |
@@ -139,7 +139,8 @@ one, stop: that is the failure mode this skill exists to prevent.
    adds the ✎ / ⚠ labels; never present your own content as theirs.
 5. **Inputs are read-only.** Write only inside the run and output dirs. The one exception
    is Phase 6's optional delivery into the user's Anki (`adb deliver`), and only after
-   they say yes in this run.
+   they say yes in this run. Change Anki only through `adb deliver` commands, never with
+   ad hoc AnkiConnect calls; if a command is missing, tell the user.
 6. **Vision decides what to extract.** Workers look at every page region and choose crops
    by eye on a coordinate grid. `adb imgtool` only does the pixel work.
 
@@ -191,7 +192,7 @@ not this; fix those in flow.
 |------|-----|
 | `references/artifacts.md` | Run-dir layout and each phase's artifact contract (what `adb state verify` checks) |
 | `references/extraction-conventions.md` | Transcript format, figure rules, masks and redraws (extract workers) |
-| `references/card-writing-rules.md` | Card rules CW-1 to CW-16 and lint rules L01 to L14 (authors, you during triage) |
+| `references/card-writing-rules.md` | Card rules CW-1 to CW-17 and lint rules L01 to L14 (authors, you during triage) |
 | `references/review-rubric.md` | What reviewers check, severities, categories, triage decisions |
 | `references/note-types.md` | Note types, fields, macros (`{{img:}}`, `{{chem:}}`), styling, provenance labels |
 | `references/device-import.md` | Getting the deck onto AnkiMobile / AnkiDroid / AnkiWeb, straight into Anki desktop (AnkiConnect), and study-pace advice |

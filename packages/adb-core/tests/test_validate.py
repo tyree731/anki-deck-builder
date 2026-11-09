@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from adb_core import validate
-from adb_testkit import TRANSCRIPT, write_json
+from adb_testkit import CATEGORIES, TRANSCRIPT, write_json
 
 GOOD = TRANSCRIPT.format(
     pid="p001",
@@ -80,6 +80,14 @@ def test_validate_figures_requires_sidecar(run_dir: Path):
     """test_validate_figures_requires_sidecar: every page needs a sidecar, even an empty one."""
     (run_dir / "figures" / "p001.json").unlink()
     assert any("sidecar missing" in e for e in validate.validate_figures(run_dir, ["p001"]))
+
+
+def test_validate_categories_checks_the_test_date(run_dir: Path):
+    """test_validate_categories_checks_the_test_date: test_date must be a real YYYY-MM-DD date."""
+    write_json(run_dir / "categories.json", CATEGORIES | {"test_date": "2026-02-30"})
+    assert any("not a real date" in e for e in validate.validate_categories(run_dir))
+    write_json(run_dir / "categories.json", CATEGORIES | {"test_date": "2026-11-14"})
+    assert validate.validate_categories(run_dir) == []
 
 
 def test_validate_categories_requires_every_page_assigned(run_dir: Path):

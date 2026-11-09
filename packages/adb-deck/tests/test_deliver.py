@@ -1,6 +1,8 @@
 """Tests for adb_deck/deliver.py."""
 
+import copy
 import json
+from datetime import date, timedelta
 from pathlib import Path
 
 import click
@@ -8,7 +10,7 @@ import httpx2
 import pytest
 
 from adb_core.common import sha256_file
-from adb_deck import deliver
+from adb_deck import deliver, study_plan
 from adb_testkit import wait_for_file, write_json
 
 KEYS = ["s01_a", "s01_b", "s02_c"]
@@ -27,6 +29,8 @@ class FakeAnki:
         self.adds = dict(adds or {})
         self.errors = errors or {}
         self.calls: list[tuple[str, dict]] = []
+        self.presets = {1: {"id": 1, "name": "Default", "new": {"perDay": 20}, "newGatherPriority": 0}}
+        self.preset_of: dict[str, int] = {}
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content)
@@ -34,19 +38,40 @@ class FakeAnki:
         self.calls.append((action, params))
         if action in self.errors:
             return httpx2.Response(200, json={"result": None, "error": self.errors[action]})
-        if action == "importPackage":
-            self.notes.update(self.adds)
-        result = {
-            "version": 6,
-            "findNotes": sorted(self.notes),
-            "notesInfo": [
-                {"noteId": i, "fields": {"Key": {"value": self.notes.get(i), "order": 5}}}
-                for i in params.get("notes", [])
-            ],
-            "importPackage": True,
-            "sync": None,
-        }[action]
+        result = getattr(self, f"_{action}")(**params)
         return httpx2.Response(200, json={"result": result, "error": None})
+
+    def _version(self):
+        return 6
+
+    def _findNotes(self, query):
+        return sorted(self.notes)
+
+    def _notesInfo(self, notes):
+        return [{"noteId": i, "fields": {"Key": {"value": self.notes.get(i), "order": 5}}} for i in notes]
+
+    def _importPackage(self, path):
+        self.notes.update(self.adds)
+        return True
+
+    def _sync(self):
+        return None
+
+    def _getDeckConfig(self, deck):
+        return copy.deepcopy(self.presets[self.preset_of.get(deck, 1)])
+
+    def _cloneDeckConfigId(self, name, cloneFrom):
+        new = max(self.presets) + 1
+        self.presets[new] = copy.deepcopy(self.presets[int(cloneFrom)]) | {"id": new, "name": name}
+        return new
+
+    def _setDeckConfigId(self, decks, configId):
+        self.preset_of |= dict.fromkeys(decks, configId)
+        return True
+
+    def _saveDeckConfig(self, config):
+        self.presets[config["id"]] = config
+        return True
 
     def client(self) -> deliver.AnkiConnect:
         return deliver.AnkiConnect(
@@ -60,7 +85,7 @@ class FakeAnki:
 @pytest.fixture
 def completed(run_dir: Path) -> Path:
     """A run whose Complete phase delivered a deck with KEYS (the deck bytes are a stand-in)."""
-    write_json(run_dir / "build" / "cards.json", [{"key": k} for k in KEYS])
+    write_json(run_dir / "build" / "cards.json", [{"key": k, "type": "basic"} for k in KEYS])
     (run_dir / "build" / "deck.apkg").write_bytes(b"signed-off deck")
     out = run_dir.parent / "anki-output"
     out.mkdir()
@@ -150,6 +175,72 @@ def test_import_reports_notes_already_there_and_stale_ones(completed: Path):
     record = deliver.import_via_ankiconnect(completed, anki.client())
     assert (record["added"], record["already_there"], record["extra"]) == (2, 1, ["s01_old"])
     assert record["synced"] is False
+
+
+@pytest.fixture
+def planned(completed: Path) -> Path:
+    """The completed run with two subdecks and a study plan for a test 12 days away (3 cards, 2 core)."""
+    path = completed.parent / "anki-output" / "summary.json"
+    summary = json.loads(path.read_text())
+    summary["decks"] = {"Test Deck::1 Class Notes": 2, "Test Deck::2 Review Packet": 1}
+    summary["study_plan"] = study_plan.plan(date.today() + timedelta(days=12), date.today(), 3, 2)
+    write_json(path, summary)
+    return completed
+
+
+def test_import_paces_the_deck_with_its_own_preset(planned: Path):
+    """test_import_paces_the_deck_with_its_own_preset: the deck and its subdecks get an options preset of their own,
+    named after the deck, with the planned new cards a day gathered by position (core first); the Default preset is
+    untouched, and a second delivery reuses the deck's preset."""
+    anki = FakeAnki(adds={1: "s01_a", 2: "s01_b", 3: "s02_c"})
+    record = deliver.import_via_ankiconnect(planned, anki.client())
+    preset = anki.presets[anki.preset_of["Test Deck"]]
+    assert (preset["name"], preset["new"]["perDay"], preset["newGatherPriority"]) == ("Test Deck", 10, 1)
+    assert set(anki.preset_of) == {"Test Deck", "Test Deck::1 Class Notes", "Test Deck::2 Review Packet"}
+    assert set(anki.preset_of.values()) == {preset["id"]}
+    assert anki.presets[1]["new"]["perDay"] == 20 and record["paced"]["new_per_day"] == 10
+    deliver.import_via_ankiconnect(planned, anki.client())
+    assert len(anki.presets) == 2
+
+
+def test_import_without_pacing_leaves_options_alone(planned: Path):
+    """test_import_without_pacing_leaves_options_alone: with pacing off, no preset is created or assigned."""
+    anki = FakeAnki(adds={1: "s01_a", 2: "s01_b", 3: "s02_c"})
+    record = deliver.import_via_ankiconnect(planned, anki.client(), pace=False)
+    assert (record["paced"], anki.preset_of, list(anki.presets)) == (None, {}, [1])
+
+
+def test_pace_sets_an_exact_number_on_the_decks_own_preset(planned: Path):
+    """test_pace_sets_an_exact_number_on_the_decks_own_preset: an exact number of new cards a day lands on the deck's
+    own preset (gathered by position), never on the Default preset, and is recorded."""
+    anki = FakeAnki()
+    record = deliver.pace_deck(planned, anki.client(), new_per_day=30)
+    preset = anki.presets[anki.preset_of["Test Deck"]]
+    assert (preset["name"], preset["new"]["perDay"], preset["newGatherPriority"]) == ("Test Deck", 30, 1)
+    assert anki.presets[1]["new"]["perDay"] == 20
+    assert (record["target"], record["new_per_day"], record["plan"]) == ("pace", 30, None)
+    assert _deliveries(planned)[-1] == record
+
+
+def test_pace_replans_for_today_or_a_new_test_date(planned: Path, completed: Path):
+    """test_pace_replans_for_today_or_a_new_test_date: without a number, the deck's plan is recomputed for today; a
+    deck built without a test date can be planned for one, counting its cards from the build."""
+    record = deliver.pace_deck(planned, FakeAnki().client())
+    assert (record["plan"]["days_left"], record["new_per_day"]) == (12, 10)
+    test_date = date.today() + timedelta(days=5)
+    record = deliver.pace_deck(completed, FakeAnki().client(), test_date=test_date)
+    assert (record["plan"]["test_date"], record["plan"]["cards"]) == (test_date.isoformat(), 3)
+
+
+def test_pace_needs_a_future_test_date_or_a_number(completed: Path):
+    """test_pace_needs_a_future_test_date_or_a_number: with no test date and no number, or a test date that's today,
+    nothing is changed and the error says what to pass."""
+    anki = FakeAnki()
+    with pytest.raises(deliver.DeliveryError, match="--test-date"):
+        deliver.pace_deck(completed, anki.client())
+    with pytest.raises(deliver.DeliveryError, match="--new-per-day"):
+        deliver.pace_deck(completed, anki.client(), test_date=date.today())
+    assert anki.preset_of == {}
 
 
 def test_ankiconnect_failures_become_delivery_errors():

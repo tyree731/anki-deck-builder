@@ -13,6 +13,7 @@ delivery is recorded in the output folder's summary.json under "deliveries".
 
 import re
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -30,6 +31,7 @@ from adb_core.common import (
     write_json,
 )
 from adb_core.state import load_state, now
+from adb_deck import study_plan
 
 ADDON_CODE = "2055492159"
 
@@ -80,6 +82,54 @@ class AnkiConnect:
     def sync(self) -> None:
         """Sync the open profile with AnkiWeb, using the login Anki already has."""
         self._call("sync")
+
+    def deck_config(self, deck: str) -> dict:
+        """The options preset a deck uses.
+
+        Args:
+            deck: The deck's full name.
+
+        Returns:
+            The preset, as AnkiConnect's dictionary (id, name, new.perDay, newGatherPriority, ...).
+        """
+        config = self._call("getDeckConfig", deck=deck)
+        if not config:
+            raise DeliveryError(f"AnkiConnect found no deck named {deck!r}")
+        return config
+
+    def clone_deck_config(self, name: str, clone_from: int) -> int:
+        """Create an options preset as a copy of another.
+
+        Args:
+            name: The new preset's name.
+            clone_from: The id of the preset to copy.
+
+        Returns:
+            The new preset's id.
+        """
+        preset = self._call("cloneDeckConfigId", name=name, cloneFrom=clone_from)
+        if not preset:
+            raise DeliveryError(f"AnkiConnect couldn't create the options preset {name!r}")
+        return int(preset)
+
+    def save_deck_config(self, config: dict) -> None:
+        """Save changes to an options preset.
+
+        Args:
+            config: The preset, as returned by `deck_config()` and then edited.
+        """
+        if not self._call("saveDeckConfig", config=config):
+            raise DeliveryError(f"AnkiConnect couldn't save the options preset {config.get('name')!r}")
+
+    def set_deck_config(self, decks: list[str], config_id: int) -> None:
+        """Make decks use an options preset.
+
+        Args:
+            decks: Full deck names.
+            config_id: The preset's id.
+        """
+        if not self._call("setDeckConfigId", decks=decks, configId=config_id):
+            raise DeliveryError(f"AnkiConnect couldn't assign options preset {config_id} to {decks}")
 
     def deck_keys(self, deck_root: str) -> set[str]:
         """The card keys of every note in a deck and its subdecks.
@@ -203,17 +253,82 @@ def open_in_anki(run_dir: Path) -> dict:
     return _record(apkg.parent, {"target": "open", "at": now(), "app": app, "via": via})
 
 
-def import_via_ankiconnect(run_dir: Path, anki: AnkiConnect, sync: bool = False) -> dict:
-    """Import the delivered deck through AnkiConnect, check every note arrived, then optionally sync.
+_LOWEST_POSITION = 1  # Anki's "new card gather order: ascending position"
+
+
+def _pace(anki: AnkiConnect, decks: list[str], new_per_day: int) -> dict:
+    # a preset of the deck's own, copied from the one it uses now and named after it, so the
+    # learner's other decks keep their options. new cards are gathered by position, which the
+    # build sets core first.
+    root = decks[0]
+    current = anki.deck_config(root)
+    if current["name"] != root:
+        anki.set_deck_config(decks, anki.clone_deck_config(root, current["id"]))
+        current = anki.deck_config(root)
+    else:
+        anki.set_deck_config(decks, current["id"])
+    current["new"]["perDay"] = new_per_day
+    current["newGatherPriority"] = _LOWEST_POSITION
+    anki.save_deck_config(current)
+    return {"preset": root, "new_per_day": new_per_day}
+
+
+def _deck_names(summary: dict) -> list[str]:
+    # the deck root first, then its subdecks
+    root = summary["deck_root"]
+    return [root, *sorted(d for d in summary.get("decks", {}) if d != root)]
+
+
+def pace_deck(run_dir: Path, anki: AnkiConnect, new_per_day: int | None = None, test_date: date | None = None) -> dict:
+    """Set the delivered deck's new cards a day in Anki, on the deck's own options preset.
+
+    Args:
+        run_dir: The run directory.
+        anki: The AnkiConnect client.
+        new_per_day: An exact number of new cards a day; without it, the study plan's,
+            recomputed for today.
+        test_date: Plan for this test date instead of the one the deck was built with.
+
+    Returns:
+        The record added to summary.json: the preset, the new cards a day, and the plan
+        they came from (None for an exact number).
+
+    Raises:
+        DeliveryError: The deck isn't the delivered one or isn't in Anki, there's no test
+            date and no number, the test is today or past, or AnkiConnect failed.
+    """
+    apkg, summary = delivered_deck(run_dir)
+    plan = None
+    if new_per_day is None:
+        stored = summary.get("study_plan")
+        when = test_date or (date.fromisoformat(stored["test_date"]) if stored else None)
+        if when is None:
+            raise DeliveryError("the deck has no test date: pass --test-date to plan for one, or --new-per-day")
+        if stored:
+            cards, core = stored["cards"], stored["core_cards"]
+        else:
+            cards, core = study_plan.deck_counts(read_json(run_paths(run_dir)["build"] / "cards.json"))
+        plan = study_plan.plan(when, date.today(), cards, core)
+        new_per_day = plan["new_per_day"]
+        if not new_per_day:
+            raise DeliveryError(f"the test date {plan['test_date']} is today or past: pass --new-per-day instead")
+    paced = _pace(anki, _deck_names(summary), new_per_day)
+    return _record(apkg.parent, {"target": "pace", "at": now(), "url": anki.url, **paced, "plan": plan})
+
+
+def import_via_ankiconnect(run_dir: Path, anki: AnkiConnect, sync: bool = False, pace: bool = True) -> dict:
+    """Import the delivered deck through AnkiConnect, check every note arrived, then pace and sync it.
 
     Args:
         run_dir: The run directory.
         anki: The AnkiConnect client.
         sync: Sync to AnkiWeb afterwards, if every note arrived.
+        pace: With a test date, give the deck its own options preset with the study plan's new
+            cards a day, recomputed for today, and core cards first.
 
     Returns:
         The delivery record added to summary.json: notes expected, added and already there,
-        `missing` and `extra` card keys, and whether it synced.
+        `missing` and `extra` card keys, the pacing applied (or None), and whether it synced.
 
     Raises:
         DeliveryError: The deck isn't the delivered one, or AnkiConnect failed.
@@ -224,6 +339,11 @@ def import_via_ankiconnect(run_dir: Path, anki: AnkiConnect, sync: bool = False)
     anki.import_package(apkg)
     after = anki.deck_keys(summary["deck_root"])
     missing = sorted(expected - after)
+    paced = None
+    if pace and not missing and (plan := summary.get("study_plan")):
+        today = study_plan.plan(date.fromisoformat(plan["test_date"]), date.today(), plan["cards"], plan["core_cards"])
+        if today["new_per_day"]:
+            paced = _pace(anki, _deck_names(summary), today["new_per_day"]) | {"all_seen_by": today["all_seen_by"]}
     synced = sync and not missing
     if synced:
         anki.sync()
@@ -238,6 +358,7 @@ def import_via_ankiconnect(run_dir: Path, anki: AnkiConnect, sync: bool = False)
             "already_there": len(expected & before),
             "missing": missing,
             "extra": sorted(after - expected),
+            "paced": paced,
             "synced": synced,
         },
     )
@@ -288,13 +409,19 @@ def open_cmd(run_dir: Path) -> None:
 @cli.command("ankiconnect")
 @click.argument("run_dir", type=RUN_DIR)
 @click.option("--sync/--no-sync", default=None, help="Sync to AnkiWeb after a complete import. [default: config.toml]")
+@click.option(
+    "--pace/--no-pace",
+    default=None,
+    help="Apply the study plan's new cards a day, if there's a test date. [default: config.toml]",
+)
 @URL
-def ankiconnect_cmd(run_dir: Path, sync: bool | None, url: str) -> None:
-    """Import the deck through AnkiConnect, check that every note arrived, and optionally sync to AnkiWeb."""
-    if sync is None:
-        sync = bool(load_config()["deliver"]["sync_after_import"])
+def ankiconnect_cmd(run_dir: Path, sync: bool | None, pace: bool | None, url: str) -> None:
+    """Import the deck through AnkiConnect, check that every note arrived, pace it and optionally sync to AnkiWeb."""
+    cfg = load_config()["deliver"]
+    sync = bool(cfg["sync_after_import"]) if sync is None else sync
+    pace = bool(cfg["apply_study_plan"]) if pace is None else pace
     try:
-        record = import_via_ankiconnect(run_dir, AnkiConnect(url), sync=sync)
+        record = import_via_ankiconnect(run_dir, AnkiConnect(url), sync=sync, pace=pace)
     except DeliveryError as exc:
         _fail(exc)
     click.echo(
@@ -308,7 +435,53 @@ def ankiconnect_cmd(run_dir: Path, sync: bool | None, url: str) -> None:
     if record["missing"]:
         click.echo(f"MISSING {len(record['missing'])} note(s), so not synced: {', '.join(record['missing'][:10])}")
         sys.exit(EXIT_FAIL)
+    if record["paced"]:
+        click.echo(
+            f"paced: {record['paced']['new_per_day']} new card(s) a day, core first, in options preset "
+            f"{record['paced']['preset']!r}; every card seen by {record['paced']['all_seen_by']}"
+        )
     click.echo("synced to AnkiWeb" if record["synced"] else "not synced (pass --sync to sync to AnkiWeb)")
+
+
+@cli.command("pace")
+@click.argument("run_dir", type=RUN_DIR)
+@click.option("--new-per-day", type=click.IntRange(min=1), help="An exact number of new cards a day.")
+@click.option(
+    "--test-date", type=click.DateTime(formats=["%Y-%m-%d"]), help="Plan for this test date (YYYY-MM-DD) instead."
+)
+@click.option("--sync", is_flag=True, help="Sync to AnkiWeb afterwards, so other devices get the new pace.")
+@URL
+def pace_cmd(run_dir: Path, new_per_day: int | None, test_date, sync: bool, url: str) -> None:
+    """Set the deck's new cards a day in Anki: the study plan's for today, or an exact number."""
+    if new_per_day and test_date:
+        raise click.UsageError("pass --new-per-day or --test-date, not both")
+    anki = AnkiConnect(url)
+    try:
+        record = pace_deck(run_dir, anki, new_per_day, test_date.date() if test_date else None)
+        if sync:
+            anki.sync()
+    except DeliveryError as exc:
+        _fail(exc)
+    click.echo(f"paced: {record['new_per_day']} new card(s) a day, core first, in options preset {record['preset']!r}")
+    if plan := record["plan"]:
+        click.echo(
+            f"plan: test {plan['test_date']} in {plan['days_left']} day(s); every card seen by {plan['all_seen_by']}, "
+            f"reviews only from {plan['reviews_from']}"
+        )
+        if not plan["fits"]:
+            click.echo(f"not every card fits before the test; core cards are seen by {plan['core_seen_by']}")
+    click.echo("synced to AnkiWeb" if sync else "not synced (pass --sync, or run `adb deliver sync`)")
+
+
+@cli.command("sync")
+@URL
+def sync_cmd(url: str) -> None:
+    """Sync this computer's Anki with AnkiWeb through AnkiConnect, using the login Anki already has."""
+    try:
+        AnkiConnect(url).sync()
+    except DeliveryError as exc:
+        _fail(exc)
+    click.echo("synced to AnkiWeb")
 
 
 if __name__ == "__main__":

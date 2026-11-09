@@ -15,12 +15,13 @@ import re
 import shutil
 import sys
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 import click
 
 from adb_core.common import EXIT_FAIL, EXIT_OK, load_config, read_json, run_paths, sha256_file, write_json
-from adb_deck import build_deck, export_transcripts, study_guide, validate_deck
+from adb_deck import build_deck, export_transcripts, study_guide, study_plan, validate_deck
 
 
 def complete(run_dir: Path, out_dir: Path) -> int:
@@ -110,6 +111,17 @@ def complete(run_dir: Path, out_dir: Path) -> int:
         },
         "outputs": outputs,
     }
+    if cats.get("test_date"):
+        total, core = study_plan.deck_counts(cards)
+        summary["study_plan"] = study_plan.plan(date.fromisoformat(cats["test_date"]), date.today(), total, core)
+        pace = summary["study_plan"]
+        if pace["new_per_day"]:
+            click.echo(
+                f"study plan: {pace['new_per_day']} new card(s) a day, core first; every card seen by "
+                f"{pace['all_seen_by']}, reviews only from {pace['reviews_from']} (test {pace['test_date']})"
+            )
+        else:
+            click.echo(f"study plan: the test date {pace['test_date']} is today or past; no pacing")
     write_json(out_dir / "summary.json", summary)
     click.echo(f"summary: {out_dir / 'summary.json'}")
     return EXIT_OK if report["ok"] else EXIT_FAIL

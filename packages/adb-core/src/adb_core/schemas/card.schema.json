@@ -24,7 +24,8 @@
       "answer_image": {"type": "string", "minLength": 1},
       "extra": {"type": "string"},
       "images": {"type": "array", "items": {"type": "string", "minLength": 1}},
-      "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_:]+$"}}
+      "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_:]+$"}},
+      "priority": {"enum": ["core", "supporting"]}
     },
     "allOf": [
       {"if": {"properties": {"type": {"const": "basic"}}}, "then": {"required": ["front", "back"], "not": {"anyOf": [{"required": ["text"]}, {"required": ["prompt"]}]}}},

@@ -6,7 +6,7 @@ The phase files and worker briefs point at these documents instead of restating 
 |------|----------|---------|
 | `artifacts.md` | run-dir layout, phase gates, batch states, refine round contract | orchestrator |
 | `extraction-conventions.md` | transcript format, marking conventions, Flags, figure rules | extract workers |
-| `card-writing-rules.md` | CW-1 to CW-16, lint rules L01 to L14, waivers | authors; orchestrator in triage |
+| `card-writing-rules.md` | CW-1 to CW-17, lint rules L01 to L14, waivers | authors; orchestrator in triage |
 | `review-rubric.md` | what to check, severities, categories, triage, common findings and fixes | reviewers; orchestrator |
 | `note-types.md` | note types, fields, macros, provenance labels, tags, styling, stable IDs | authors; orchestrator |
 | `device-import.md` | AnkiMobile / AnkiDroid / desktop import, updates, pace advice | orchestrator (final message) |

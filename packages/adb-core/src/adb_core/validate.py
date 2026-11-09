@@ -8,6 +8,7 @@ and are what adb state uses to gate phase transitions.
 import json
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 import click
@@ -237,6 +238,11 @@ def validate_categories(run_dir: Path) -> list[str]:
     errors = schema_errors("categories.schema.json", payload, str(paths["categories"]))
     if errors:
         return errors
+    if "test_date" in payload:
+        try:
+            date.fromisoformat(payload["test_date"])
+        except ValueError:
+            errors.append(f"categories: test_date '{payload['test_date']}' is not a real date (YYYY-MM-DD)")
     source_ids = [s["id"] for s in payload["sources"]]
     topic_slugs = [t["slug"] for t in payload["topics"]]
     for dupes, what in (
